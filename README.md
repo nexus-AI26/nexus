@@ -1,4 +1,7 @@
-# nexus — AI Coding Agent
+<div align="center">
+  <img src="assets/logo.png" width="200" alt="nexus logo" />
+  <h1>nexus — AI Coding Agent</h1>
+</div>
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-purple.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/%3C%2F%3E-TypeScript-blue.svg)](https://www.typescriptlang.org/)
@@ -57,6 +60,22 @@ Built with React for the terminal (Ink) and designed for developers who live in 
 ---
 
 ## Installation
+
+### Automated Install
+
+You can run our automated install scripts which will automatically clone the repository, install dependencies, and securely link `nexus` to your global `PATH`.
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/nexus-AI26/nexus/main/install.ps1 | iex
+```
+
+**Mac/Linux (Bash):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/nexus-AI26/nexus/main/install.sh | bash
+```
+
+### Manual Install
 
 ```bash
 # Clone the repository
