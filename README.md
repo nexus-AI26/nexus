@@ -8,7 +8,7 @@
 
 **nexus** is a deeply customizable, terminal-based AI coding assistant. It brings the power of agentic coding (like Cursor or Claude Code) directly into your command line, but with a philosophy of absolute freedom: you bring your own API keys, choose any model from any provider, and customize the UI to your liking.
 
-Built with React for the terminal (Ink) and designed for developers who live in their terminal.
+Built with React for the terminal and designed for developers who live in their terminal.
 
 ---
 
