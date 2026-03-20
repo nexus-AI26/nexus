@@ -60,7 +60,7 @@ Built with React for the terminal (Ink) and designed for developers who live in 
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/nexus.git
+git clone https://github.com/nexus-AI26/nexus.git
 cd nexus
 
 # Install dependencies and build
