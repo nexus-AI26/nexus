@@ -67,12 +67,12 @@ You can run our automated install scripts which will automatically clone the rep
 
 **Windows (PowerShell):**
 ```powershell
-irm https://raw.githubusercontent.com/nexus-AI26/nexus/blob/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/nexus-AI26/nexus/main/install.ps1 | iex
 ```
 
 **Mac/Linux (Bash):**
 ```bash
-curl -fsSL https://raw.githubusercontent.com/nexus-AI26/nexus/blob/main/installsh | bash
+curl -fsSL https://raw.githubusercontent.com/nexus-AI26/nexus/main/install.sh | bash
 ```
 
 ### Manual Install
