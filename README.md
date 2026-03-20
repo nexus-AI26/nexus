@@ -14,7 +14,7 @@ Built with React for the terminal (Ink) and designed for developers who live in 
 
 ## Features
 
-- **Bring Your Own Provider:** Support for OpenAI, Anthropic, OpenRouter, or Custom local endpoints (LM Studio, Ollama). Use `claude-3.5-sonnet`, `gpt-4o`, `llama-3.3`, `deepseek-v3`, or anything else.
+- **Bring Your Own Provider:** Support for OpenAI, Anthropic, OpenRouter, or Custom local endpoints (LM Studio, Ollama). Use `claude-4.6-opus`, `gpt-5.4`, `llama-4`, `deepseek-v3.2`, or anything else.
 - **Beautiful TUI:** 6 built-in color themes (Dracula, Tokyo Night, Monokai, Catppuccin, Nord, Light) with live switching.
 - **Command Palette:** Press `/` to open a fuzzy-searchable overlay for 20+ built-in commands.
 - **Safe Agentic Tools:** nexus can read your code, write files, and run terminal commands to fix bugs. It will always ask for your permission before writing a file or running a shell command, so you stay in control.
