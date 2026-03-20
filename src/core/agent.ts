@@ -61,88 +61,108 @@ export class Agent {
       timestamp: Date.now(),
     });
 
-    this.emit({ type: 'thinking' });
-
     this.abortController = new AbortController();
+    let keepGoing = true;
 
-    const provider = createProvider(this.session.provider);
-    let accText = '';
+    while (keepGoing && this.abortController) {
+      this.emit({ type: 'thinking' });
+      keepGoing = false;
+      
+      const provider = createProvider(this.session.provider);
+      let accText = '';
+      const pendingReqTools: Array<{ id: string; name: string; args: Record<string, unknown> }> = [];
 
-    const onChunk: StreamCallback = async (chunk) => {
-      if (chunk.type === 'text' && chunk.content) {
-        accText += chunk.content;
-        this.emit({ type: 'text', content: chunk.content });
-      }
-      if (chunk.type === 'error') {
-        this.emit({ type: 'error', message: chunk.error ?? 'Unknown error' });
-      }
-      if (chunk.type === 'tool_call' && chunk.toolName) {
-        const args = (chunk.toolArgs ?? {}) as Record<string, unknown>;
-        const id = chunk.toolCallId || Date.now().toString() + Math.random().toString();
-        const isSafe = ['read_file', 'list_directory', 'search_files'].includes(chunk.toolName);
-
-        let approved = true;
-        if (!isSafe) {
-          this.emit({ type: 'tool_ask', id, name: chunk.toolName, args });
-          approved = await new Promise<boolean>((resolve) => {
-            this.pendingTools.set(id, resolve);
+      const onChunk: StreamCallback = (chunk) => {
+        if (chunk.type === 'text' && chunk.content) {
+          accText += chunk.content;
+          this.emit({ type: 'text', content: chunk.content });
+        }
+        if (chunk.type === 'error') {
+          this.emit({ type: 'error', message: chunk.error ?? 'Unknown error' });
+        }
+        if (chunk.type === 'tool_call' && chunk.toolName) {
+          pendingReqTools.push({
+            id: chunk.toolCallId || Date.now().toString() + Math.random().toString(),
+            name: chunk.toolName,
+            args: (chunk.toolArgs ?? {}) as Record<string, unknown>
           });
         }
+        // We ignore chunk.type === 'done' here, as we manually handle the end of the stream below.
+      };
 
-        if (approved) {
-          this.emit({ type: 'tool_start', name: chunk.toolName, args });
-          const result = await executeTool(chunk.toolName, args);
-          this.emit({ type: 'tool_done', name: chunk.toolName, output: result.output, success: result.success });
-          this.session.messages.push({
-            role: 'tool',
-            content: result.success ? result.output : `Error: ${result.error}`,
-            toolName: chunk.toolName,
-          });
-        } else {
-          const rejectedMsg = 'User rejected this action.';
-          this.emit({ type: 'tool_done', name: chunk.toolName, output: rejectedMsg, success: false });
-          this.session.messages.push({
-            role: 'tool',
-            content: rejectedMsg,
-            toolName: chunk.toolName,
-          });
-        }
-      }
-      if (chunk.type === 'done') {
+      try {
+        await provider.chat(this.session.messages, {
+          apiKey,
+          model: this.session.model,
+          baseUrl: cfg.customBaseUrl,
+          maxTokens: cfg.maxTokens,
+          temperature: cfg.temperature,
+          systemPrompt: cfg.systemPrompt,
+          signal: this.abortController.signal,
+        }, onChunk);
+
         if (accText) {
           this.session.messages.push({ role: 'assistant', content: accText, timestamp: Date.now() });
-          accText = '';
         }
-        this.emit({ type: 'done' });
-      }
-    };
 
-    try {
-      await provider.chat(this.session.messages, {
-        apiKey,
-        model: this.session.model,
-        baseUrl: cfg.customBaseUrl,
-        maxTokens: cfg.maxTokens,
-        temperature: cfg.temperature,
-        systemPrompt: cfg.systemPrompt,
-        signal: this.abortController.signal,
-      }, onChunk);
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'AbortError') {
+        if (pendingReqTools.length > 0) {
+          keepGoing = true; 
+          for (const tc of pendingReqTools) {
+            if (!this.abortController) break;
 
-        if (accText) {
-          this.session.messages.push({ role: 'assistant', content: accText + ' [cancelled]', timestamp: Date.now() });
-          accText = '';
+            const isSafe = ['read_file', 'list_directory', 'search_files'].includes(tc.name);
+            let approved = true;
+
+            if (!isSafe) {
+              this.emit({ type: 'tool_ask', id: tc.id, name: tc.name, args: tc.args });
+              approved = await new Promise<boolean>((resolve) => {
+                this.pendingTools.set(tc.id, resolve);
+              });
+            }
+
+            if (!this.abortController) break;
+
+            if (approved) {
+              this.emit({ type: 'tool_start', name: tc.name, args: tc.args });
+              const result = await executeTool(tc.name, tc.args);
+              this.emit({ type: 'tool_done', name: tc.name, output: result.output, success: result.success });
+              this.session.messages.push({
+                role: 'tool',
+                content: result.success ? result.output : `Error: ${result.error}`,
+                toolName: tc.name,
+                toolCallId: tc.id
+              });
+            } else {
+              const rejectedMsg = 'User rejected this action.';
+              this.emit({ type: 'tool_done', name: tc.name, output: rejectedMsg, success: false });
+              this.session.messages.push({
+                role: 'tool',
+                content: rejectedMsg,
+                toolName: tc.name,
+                toolCallId: tc.id
+              });
+            }
+          }
+        } else {
+          this.emit({ type: 'done' });
         }
+
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          if (accText) {
+            this.session.messages.push({ role: 'assistant', content: accText + ' [cancelled]', timestamp: Date.now() });
+          }
+          this.emit({ type: 'done' });
+          return;
+        }
+        const msg = err instanceof Error ? err.message : String(err);
+        this.emit({ type: 'error', message: msg });
         this.emit({ type: 'done' });
-        return;
+        keepGoing = false;
       }
-      const msg = err instanceof Error ? err.message : String(err);
-      this.emit({ type: 'error', message: msg });
-      this.emit({ type: 'done' });
-    } finally {
-      this.abortController = null;
     }
+
+    this.abortController = null;
   }
 
   cancel(): void {
