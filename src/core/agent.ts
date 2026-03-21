@@ -217,7 +217,7 @@ export class Agent {
         keepGoing = false;
       }
     }
-
+    this.emit({ type: 'done' });
     this.abortController = null;
   }
 
