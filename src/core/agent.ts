@@ -12,6 +12,7 @@ import {
 
 export type AgentEvent =
   | { type: 'text'; content: string }
+  | { type: 'thought'; content: string }
   | { type: 'tool_ask'; id: string; name: string; args: Record<string, unknown> }
   | { type: 'tool_update'; id: string; name?: string; argsDelta: string }
   | { type: 'tool_start'; name: string; args: Record<string, unknown> }
@@ -75,12 +76,17 @@ export class Agent {
 
       const runProviderOnce = async (messagesToSend: Message[]) => {
         let localText = '';
+        let localThought = '';
         let hadError = false;
         const localTools: Array<{ id: string; name: string; args: Record<string, unknown> }> = [];
         const onChunk: StreamCallback = (chunk) => {
           if (chunk.type === 'text' && chunk.content) {
             localText += chunk.content;
             this.emit({ type: 'text', content: chunk.content });
+          }
+          if (chunk.type === 'thought' && chunk.thought) {
+            localThought += chunk.thought;
+            this.emit({ type: 'thought', content: chunk.thought });
           }
           if (chunk.type === 'error') {
             hadError = true;
@@ -109,12 +115,13 @@ export class Agent {
           signal: this.abortController!.signal,
         }, onChunk);
 
-        return { text: localText, tools: localTools, error: hadError };
+        return { text: localText, thought: localThought, tools: localTools, error: hadError };
       };
 
       try {
         const firstPass = await runProviderOnce(this.session.messages);
         accText = firstPass.text;
+        let accThought = firstPass.thought;
         pendingReqTools = firstPass.tools;
 
         // Some models occasionally return an empty streamed response on first attempt.
@@ -126,11 +133,12 @@ export class Agent {
           ];
           const retryPass = await runProviderOnce(retryMessages);
           accText = retryPass.text;
+          accThought = retryPass.thought;
           pendingReqTools = retryPass.tools;
         }
 
-        if (accText) {
-          this.session.messages.push({ role: 'assistant', content: accText, timestamp: Date.now() });
+        if (accText || accThought) {
+          this.session.messages.push({ role: 'assistant', content: accText, thought: accThought, timestamp: Date.now() });
         } else if (pendingReqTools.length === 0) {
           // Some providers/models may fail to produce a final response after tools.
           // Fallback to the latest tool output so the user still gets a useful answer.
