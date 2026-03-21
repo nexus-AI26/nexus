@@ -64,17 +64,14 @@ interface WelcomeCardProps {
 }
 
 export function NexusSymbol({ theme, compact = false }: { theme: Theme; compact?: boolean }) {
-  if (compact) {
-    return <Text bold color={theme.primary}>✦ nexus</Text>;
-  }
   return (
-    <Box flexDirection="column" marginY={1} alignItems="center">
+    <Box flexDirection="column" marginY={compact ? 0 : 1} alignItems="center">
       <Text color={theme.primary}>  ▟█▙      ▟█▙  </Text>
       <Text color={theme.primary}>  ▝██▙    ▟██▘  </Text>
-      <Text color={theme.primary}>   ▝██▙  ▟██▘   </Text>
+      {!compact && <Text color={theme.primary}>   ▝██▙  ▟██▘   </Text>}
       <Text color={theme.primary}>    ▝██████▘    </Text>
       <Text color={theme.primary}>    ▟██████▙    </Text>
-      <Text color={theme.primary}>   ▟██▘  ▝██▙   </Text>
+      {!compact && <Text color={theme.primary}>   ▟██▘  ▝██▙   </Text>}
       <Text color={theme.primary}>  ▟██▘    ▝██▙  </Text>
     </Box>
   );
@@ -112,8 +109,8 @@ export function WelcomeCard({ theme, version, provider, model, cwd, compact = fa
               <NexusSymbol theme={theme} compact={compact} />
 
               <Box gap={2} flexDirection={compact ? 'row' : 'column'} alignItems="center">
-                {!compact && <Text color={theme.secondary}>{provider} · {model}</Text>}
-                {!compact && <Text color={theme.muted} dimColor>{shortCwd}</Text>}
+                <Text color={theme.secondary}>{provider} · {model}</Text>
+                <Text color={theme.muted} dimColor>{shortCwd}</Text>
               </Box>
            </Box>
 
