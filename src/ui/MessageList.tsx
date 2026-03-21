@@ -9,6 +9,8 @@ interface MessageListProps {
   toolEvents: ToolEvent[];
   streamBuffer: string;
   isThinking: boolean;
+  isWriting: boolean;
+  showThinking: boolean;
   verbose: boolean;
 }
 
@@ -117,13 +119,19 @@ function MessageBubble({ message, theme, verbose }: { message: Message; theme: T
 
 function ToolEventRow({ event, theme, verbose }: { event: ToolEvent; theme: Theme; verbose: boolean }) {
   if (event.type === 'start') {
+    const isCodeWriteTool = ['write_file', 'edit_file', 'apply_patch'].includes(event.name);
+    const pathValue = event.args && typeof event.args.path === 'string' ? event.args.path : null;
+    const actionLabel = isCodeWriteTool ? 'Writing code' : 'Running';
     return (
       <Box flexDirection="column" marginLeft={2}>
         <Box>
-          <Text color={theme.warning}>⚙ Running </Text>
+          <Text color={theme.warning}>⚙ {actionLabel} </Text>
           <Text color={theme.secondary} bold>{event.name}</Text>
           <Text color={theme.warning}> …</Text>
         </Box>
+        {isCodeWriteTool && pathValue && (
+          <Text color={theme.muted}>Path: {pathValue}</Text>
+        )}
         {verbose && event.args && Object.keys(event.args).length > 0 && (
           <Box borderStyle="single" borderColor={theme.muted} paddingX={1} marginY={0}>
              <Text color={theme.muted}>{JSON.stringify(event.args, null, 2)}</Text>
@@ -135,7 +143,7 @@ function ToolEventRow({ event, theme, verbose }: { event: ToolEvent; theme: Them
   return null;
 }
 
-export function MessageList({ messages, theme, toolEvents, streamBuffer, isThinking, verbose }: MessageListProps) {
+export function MessageList({ messages, theme, toolEvents, streamBuffer, isThinking, isWriting, showThinking, verbose }: MessageListProps) {
   const displayMessages = messages.filter(m => m.role !== 'system');
 
   return (
@@ -148,10 +156,18 @@ export function MessageList({ messages, theme, toolEvents, streamBuffer, isThink
         <ToolEventRow key={i} event={ev} theme={theme} verbose={verbose} />
       ))}
 
-      {isThinking && !streamBuffer && (
+      {showThinking && isThinking && !isWriting && !streamBuffer && (
         <Box>
           <Text color={theme.primary} bold>✦ </Text>
           <Text color={theme.muted}>thinking</Text>
+          <Text color={theme.primary}>…</Text>
+        </Box>
+      )}
+
+      {showThinking && isWriting && (
+        <Box>
+          <Text color={theme.primary} bold>✦ </Text>
+          <Text color={theme.muted}>writing</Text>
           <Text color={theme.primary}>…</Text>
         </Box>
       )}
