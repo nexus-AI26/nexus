@@ -70,7 +70,6 @@ export async function executeCommand(
     case 'reset':
     case 'new':
       onClear();
-      onOutput('✦ Conversation cleared.');
       return { type: 'clear' };
 
     case 'model':
