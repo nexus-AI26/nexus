@@ -113,11 +113,15 @@ export function WelcomeCard({ theme, version, provider, model, cwd }: WelcomeCar
         <Text color={theme.border}>│</Text>
         <Box flexDirection="row" width={inner} flexShrink={0}>
           {/* Left Column: Info & Logo */}
-          <Box flexDirection="column" width={leftW} alignItems="center" paddingY={1}>
-            <Text bold color={theme.accent}>Welcome back!</Text>
+          <Box flexDirection="column" width={leftW} alignItems="center" paddingY={1} justifyContent="space-between">
+            <Box flexDirection="column" alignItems="center">
+              <Text bold color={theme.accent}>Welcome back!</Text>
+            </Box>
+            
             <Box marginY={1}>
               <Logo theme={theme} embedded />
             </Box>
+            
             <Box flexDirection="column" alignItems="center">
                <Text color={theme.secondary} wrap="truncate">{trunc(`${provider} · ${shortModel}`, leftW - 2)}</Text>
                <Text color={theme.muted} dimColor wrap="truncate">{trunc(shortCwd, leftW - 2)}</Text>
