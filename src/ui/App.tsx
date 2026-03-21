@@ -41,6 +41,19 @@ export function App() {
   const [pendingSubmission, setPendingSubmission] = useState<string | null>(null);
   const isRunning = useRef(false);
 
+  useEffect(() => {
+    // Some terminals re-enable the native cursor during redraws.
+    // Force-hide it while the app is mounted to prevent bottom flicker.
+    process.stdout.write('\x1b[?25l');
+    return () => {
+      process.stdout.write('\x1b[?25h');
+    };
+  }, []);
+
+  useEffect(() => {
+    process.stdout.write('\x1b[?25l');
+  });
+
   const refreshMessages = useCallback(() => {
     setMessages([...agent.messages]);
   }, []);
