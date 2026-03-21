@@ -384,7 +384,11 @@ export function App() {
   });
 
   return (
-    <Box flexDirection="column">
+    <Box flexDirection="column" minHeight="100%">
+      <Box paddingX={1} marginBottom={1} borderStyle="single" borderColor={theme.border} borderBottom={true} borderTop={false} borderLeft={false} borderRight={false}>
+        <Logo theme={theme} compact={!showWelcomeBanner} />
+      </Box>
+
       {showWelcomeBanner && (
         <WelcomeCard
           theme={theme}
