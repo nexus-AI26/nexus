@@ -145,7 +145,7 @@ export const tools: Record<string, ToolDef> = {
         while ((match = resultRegex.exec(html)) !== null && out.length < limit) {
           const rawHref = match[1] ?? '';
           const rawTitle = match[2] ?? '';
-          const title = rawTitle.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').trim();
+          const title = decodeHtmlEntities(rawTitle.replace(/<[^>]+>/g, '')).trim();
           const decodedHref = decodeDuckDuckGoRedirect(rawHref);
           if (!title || !decodedHref) continue;
           out.push(`${out.length + 1}. ${title}\n   ${decodedHref}`);
@@ -182,4 +182,13 @@ function decodeDuckDuckGoRedirect(href: string): string {
   } catch {
     return href;
   }
+}
+
+function decodeHtmlEntities(input: string): string {
+  return input
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&#x27;/gi, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
 }
