@@ -6,13 +6,16 @@ import type { Theme } from '../themes/index.js';
 interface InputBarProps {
   value: string;
   isThinking: boolean;
+  isWriting: boolean;
+  showThinking: boolean;
   theme: Theme;
   hasKey: boolean;
 }
 
-export function InputBar({ value, isThinking, theme, hasKey }: InputBarProps) {
+export function InputBar({ value, isThinking, isWriting, showThinking, theme, hasKey }: InputBarProps) {
   const lines = value.split('\n');
   const displayValue = lines[lines.length - 1] ?? '';
+  const activityLabel = isWriting ? 'writing...' : 'thinking...';
 
   return (
     <Box
@@ -26,7 +29,7 @@ export function InputBar({ value, isThinking, theme, hasKey }: InputBarProps) {
           <Text color={theme.primary}>
             <Spinner type="dots" />
           </Text>
-          <Text color={theme.muted} dimColor>thinking…</Text>
+          {showThinking && <Text color={theme.muted} dimColor>{activityLabel}</Text>}
         </Box>
       ) : (
         <Box flexGrow={1} gap={1}>
