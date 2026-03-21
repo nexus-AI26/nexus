@@ -22,9 +22,6 @@ type DisplayMessage = Message | SystemMessage;
 
 function clearTerminalScreen(): void {
   process.stdout.write('\x1B[2J\x1B[H');
-  if (process.stdout.isTTY) {
-    process.stdout.write('\x1B[3J');
-  }
 }
 
 export function App() {
@@ -51,10 +48,12 @@ export function App() {
   const [showWelcomeBanner, setShowWelcomeBanner] = useState(true);
   const isRunning = useRef(false);
 
+  const wasSetupMode = useRef(setupMode);
   useEffect(() => {
-    if (!setupMode) {
+    if (wasSetupMode.current && !setupMode) {
       clearTerminalScreen();
     }
+    wasSetupMode.current = setupMode;
   }, [setupMode]);
 
   useEffect(() => {
@@ -385,7 +384,7 @@ export function App() {
   });
 
   return (
-    <Box flexDirection="column" width="100%">
+    <Box flexDirection="column">
       {showWelcomeBanner && (
         <WelcomeCard
           theme={theme}
