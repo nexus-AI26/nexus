@@ -10,6 +10,7 @@ import { InputBar } from './InputBar.js';
 import { CommandPalette } from './CommandPalette.js';
 import { StatusBar } from './StatusBar.js';
 import { SetupWizard } from './SetupWizard.js';
+import { useTerminalSize } from './useTerminalWidth.js';
 import type { Message } from '../core/providers.js';
 
 interface SystemMessage {
@@ -21,7 +22,8 @@ interface SystemMessage {
 type DisplayMessage = Message | SystemMessage;
 
 function clearTerminalScreen(): void {
-  process.stdout.write('\x1B[2J\x1B[H');
+  // \x1B[2J = clear screen, \x1B[H = cursor to top, \x1B[3J = clear scrollback/buffer
+  process.stdout.write('\x1B[2J\x1B[H\x1B[3J');
 }
 
 export function App() {
@@ -33,7 +35,7 @@ export function App() {
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const [isWriting, setIsWriting] = useState(false);
-  const [showThinking, setShowThinking] = useState(true);
+  const [showThinking, setShowThinking] = useState(false);
   const [thinkingLabel, setThinkingLabel] = useState('analyzing your request...');
   const [streamBuffer, setStreamBuffer] = useState('');
   const [thoughtBuffer, setThoughtBuffer] = useState('');
@@ -383,9 +385,11 @@ export function App() {
     return m as Message;
   });
 
+  const { columns, rows } = useTerminalSize();
+
   return (
-    <Box flexDirection="column" minHeight="100%">
-      <Box flexDirection="column" flexGrow={1}>
+    <Box flexDirection="column" width={columns} height={rows - 1} overflow="hidden">
+      <Box flexDirection="column" flexGrow={1} overflow="hidden">
       <MessageList
         messages={displayMsgs}
         theme={theme}
@@ -406,46 +410,57 @@ export function App() {
       />
       </Box>
 
-      {showPalette && (
-        <CommandPalette
-          commands={getCommandList()}
-          query={input}
-          selectedIndex={paletteIndex}
+      <Box flexDirection="column" flexShrink={0}>
+        {showPalette && (
+          <CommandPalette
+            commands={getCommandList()}
+            query={input}
+            selectedIndex={paletteIndex}
+            theme={theme}
+            onSelect={(cmd) => {
+              setInput('/' + cmd.name + ' ');
+              setShowPalette(false);
+            }}
+            onClose={() => setShowPalette(false)}
+          />
+        )}
+
+        {toolAsk && (
+          <Box flexDirection="column" marginTop={1}>
+             <Text color={theme.muted} dimColor>{'╌'.repeat(columns - 4)}</Text>
+             <Text bold>Do you want to {toolAsk.name === 'run_command' ? 'run this command' : `create ${(toolAsk.args as any).path || 'this file'}`}?</Text>
+             <Box flexDirection="column" marginTop={1}>
+                <Box>
+                  <Text color={theme.accent}> ❯ </Text>
+                  <Text color={theme.primary}>1. Yes</Text>
+                </Box>
+                <Box paddingLeft={3}>
+                  <Text color={theme.secondary}>2. Yes, allow all (shift+tab)</Text>
+                </Box>
+                <Box paddingLeft={3}>
+                  <Text color={theme.secondary}>3. No</Text>
+                </Box>
+             </Box>
+             <Box marginTop={1}>
+               <Text color={theme.muted} dimColor>
+                 Esc to cancel · Tab to amend · Ctrl+O {toolAskExpanded ? 'Collapse' : 'Expand'}
+               </Text>
+             </Box>
+          </Box>
+        )}
+
+        <InputBar
+          value={input}
           theme={theme}
-          onSelect={(cmd) => {
-            setInput('/' + cmd.name + ' ');
-            setShowPalette(false);
-          }}
-          onClose={() => setShowPalette(false)}
+          hasKey={hasApiKey()}
         />
-      )}
 
-      {toolAsk && (
-        <Box flexDirection="column" borderStyle="round" borderColor={theme.accent} paddingX={1} marginBottom={1}>
-           <Text color={theme.accent} bold>⚠ Agent wants to run: {toolAsk.name}</Text>
-           <Box marginY={0} paddingLeft={1}>
-              {toolAskExpanded ? (
-                <Text color={theme.secondary}>{JSON.stringify(toolAsk.args, null, 2)}</Text>
-              ) : (
-                <Text color={theme.secondary}>
-                  {JSON.stringify(toolAsk.args).replace(/\n/g, '\\n').slice(0, 100)}
-                  {JSON.stringify(toolAsk.args).length > 100 ? '...' : ''}
-                </Text>
-              )}
-           </Box>
-           <Text color={theme.muted} dimColor>
-             [Y/Enter] Approve  •  [N/Esc] Reject  •  [Ctrl+O] {toolAskExpanded ? 'Collapse' : 'Expand'}
-           </Text>
-        </Box>
-      )}
-
-      <InputBar
-        value={input}
-        theme={theme}
-        hasKey={hasApiKey()}
-      />
-
-      <StatusBar theme={theme} showThinking={showThinking} />
+        <StatusBar 
+          theme={theme} 
+          showThinking={showThinking} 
+          isBusy={isThinking || isWriting || toolEvents.length > 0} 
+        />
+      </Box>
     </Box>
   );
 }
