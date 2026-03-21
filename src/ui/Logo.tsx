@@ -60,6 +60,7 @@ interface WelcomeCardProps {
   provider: string;
   model: string;
   cwd: string;
+  compact?: boolean;
 }
 
 export function NexusSymbol({ theme }: { theme: Theme }) {
@@ -76,7 +77,7 @@ export function NexusSymbol({ theme }: { theme: Theme }) {
   );
 }
 
-export function WelcomeCard({ theme, version, provider, model, cwd }: WelcomeCardProps) {
+export function WelcomeCard({ theme, version, provider, model, cwd, compact = false }: WelcomeCardProps) {
   const shortCwd = useMemo(() => {
     const parts = cwd.split(path.sep);
     if (parts.length > 4) {
@@ -86,7 +87,7 @@ export function WelcomeCard({ theme, version, provider, model, cwd }: WelcomeCar
   }, [cwd]);
 
   return (
-    <Box flexDirection="column" marginY={1}>
+    <Box flexDirection="column" marginY={compact ? 0 : 1}>
       <Box
         borderStyle="round"
         borderColor={theme.border}
@@ -100,27 +101,33 @@ export function WelcomeCard({ theme, version, provider, model, cwd }: WelcomeCar
            <Text color={theme.border}> ──────────────────────────────────────────</Text>
         </Box>
 
-        <Box paddingY={1}>
+        <Box paddingY={compact ? 0 : 1}>
            {/* Left Column */}
-           <Box flexDirection="column" width="40%" alignItems="center" borderRight borderRightColor={theme.border} paddingRight={2}>
-              <Text bold color={theme.accent}>Welcome back!</Text>
+           <Box flexDirection="column" width={compact ? '100%' : '40%'} alignItems="center" borderRight={!compact} borderRightColor={theme.border} paddingRight={compact ? 0 : 2}>
+              {!compact && <Text bold color={theme.accent}>Welcome back!</Text>}
               
-              <Text color={theme.secondary}>{provider} · {model}</Text>
-              <Text color={theme.muted} dimColor>{shortCwd}</Text>
+              <NexusSymbol theme={theme} />
+
+              <Box gap={2} flexDirection={compact ? 'row' : 'column'} alignItems="center">
+                <Text color={theme.secondary}>{provider} · {model}</Text>
+                <Text color={theme.muted} dimColor>{shortCwd}</Text>
+              </Box>
            </Box>
 
            {/* Right Column */}
-           <Box flexDirection="column" width="60%" paddingLeft={2}>
-              <Text bold color={theme.primary}>Tips for getting started</Text>
-              <Text color={theme.muted}>• Type <Text bold color={theme.secondary}>/help</Text> to see all commands</Text>
-              <Text color={theme.muted}>• Use <Text bold color={theme.secondary}>/init</Text> to configure your project</Text>
-              <Text color={theme.muted}>• Press <Text bold color={theme.secondary}>Ctrl+O</Text> to see live reasoning</Text>
-              
-              <Box borderBottom borderBottomColor={theme.border} marginY={1} width="100%" />
-
-              <Text bold color={theme.primary}>Recent activity</Text>
-              <Text color={theme.muted} italic>No recent activity in this session.</Text>
-           </Box>
+           {!compact && (
+             <Box flexDirection="column" width="60%" paddingLeft={2}>
+                <Text bold color={theme.primary}>Tips for getting started</Text>
+                <Text color={theme.muted}>• Type <Text bold color={theme.secondary}>/help</Text> to see all commands</Text>
+                <Text color={theme.muted}>• Use <Text bold color={theme.secondary}>/init</Text> to configure your project</Text>
+                <Text color={theme.muted}>• Press <Text bold color={theme.secondary}>Ctrl+O</Text> to see live reasoning</Text>
+                
+                <Box borderBottom borderBottomColor={theme.border} marginY={1} width="100%" />
+  
+                <Text bold color={theme.primary}>Recent activity</Text>
+                <Text color={theme.muted} italic>No recent activity in this session.</Text>
+             </Box>
+           )}
         </Box>
       </Box>
     </Box>
