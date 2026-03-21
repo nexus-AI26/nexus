@@ -4,7 +4,7 @@ import { getConfig, setConfig, isFirstRun, hasApiKey, setApiKey as setKey, PROVI
 import { getTheme, type Theme } from '../themes/index.js';
 import { agent, type AgentEvent } from '../core/agent.js';
 import { getCommandList, executeCommand } from '../commands/index.js';
-import { Logo } from './Logo.js';
+import { Logo, WelcomeCard } from './Logo.js';
 import { MessageList, type ToolEvent } from './MessageList.js';
 import { InputBar } from './InputBar.js';
 import { CommandPalette } from './CommandPalette.js';
@@ -32,6 +32,7 @@ export function App() {
   const [showThinking, setShowThinking] = useState(true);
   const [thinkingLabel, setThinkingLabel] = useState('analyzing your request...');
   const [streamBuffer, setStreamBuffer] = useState('');
+  const [thoughtBuffer, setThoughtBuffer] = useState('');
   const [toolEvents, setToolEvents] = useState<ToolEvent[]>([]);
   const [toolAsk, setToolAsk] = useState<{ id: string; name: string; args: Record<string, unknown> } | null>(null);
   const [toolAskExpanded, setToolAskExpanded] = useState(false);
@@ -40,7 +41,9 @@ export function App() {
   const [verboseMode, setVerboseMode] = useState(false);
   const [setupMode, setSetupMode] = useState(isFirstRun());
   const [pendingSubmission, setPendingSubmission] = useState<string | null>(null);
+  const [lastResponseTime, setLastResponseTime] = useState<number | null>(null);
   const isRunning = useRef(false);
+  const requestStartTime = useRef<number | null>(null);
 
   useEffect(() => {
     // Some terminals re-enable the native cursor during redraws.
@@ -103,12 +106,17 @@ export function App() {
           setIsWriting(false);
           setThinkingLabel('analyzing your request...');
           setStreamBuffer('');
+          setThoughtBuffer('');
           setToolEvents([]);
           refreshMessages();
           break;
         case 'text':
           setIsWriting(prev => prev || true);
           setStreamBuffer(prev => prev + (event.content ?? ''));
+          break;
+        case 'thought':
+          setIsWriting(prev => prev || true);
+          setThoughtBuffer(prev => prev + (event.content ?? ''));
           break;
         case 'tool_update':
           setToolEvents(prev => {
@@ -150,10 +158,15 @@ export function App() {
           isRunning.current = false;
           break;
         case 'done':
+          if (requestStartTime.current) {
+            setLastResponseTime(Date.now() - requestStartTime.current);
+            requestStartTime.current = null;
+          }
           setIsThinking(false);
           setIsWriting(false);
           setThinkingLabel('analyzing your request...');
           setStreamBuffer('');
+          setThoughtBuffer('');
           setToolEvents([]);
           refreshMessages();
           isRunning.current = false;
@@ -331,12 +344,13 @@ export function App() {
       return;
     }
 
-    if (isRunning.current) return;
-    isRunning.current = true;
+      if (isRunning.current) return;
+      isRunning.current = true;
+      requestStartTime.current = Date.now();
 
-    setMessages(prev => [...prev, { role: 'user' as const, content: text, timestamp: Date.now() }]);
+      setMessages(prev => [...prev, { role: 'user' as const, content: text, timestamp: Date.now() }]);
 
-    await agent.send(text);
+      await agent.send(text);
   }, [addSystemMessage, exit, refreshMessages, resetForNewChat]);
 
   if (setupMode) {
@@ -367,18 +381,30 @@ export function App() {
 
   return (
     <Box flexDirection="column" height="100%">
-      <Logo theme={theme} />
+      {displayMsgs.length === 0 ? (
+        <WelcomeCard 
+          theme={theme} 
+          version="1.0.0" 
+          provider={agent.provider} 
+          model={agent.model} 
+          cwd={process.cwd()} 
+        />
+      ) : (
+        <Logo theme={theme} compact />
+      )}
 
       <MessageList
         messages={displayMsgs}
         theme={theme}
         toolEvents={toolEvents}
         streamBuffer={streamBuffer}
+        thoughtBuffer={thoughtBuffer}
         isThinking={isThinking}
         isWriting={isWriting}
         showThinking={showThinking}
         thinkingLabel={thinkingLabel}
         verbose={verboseMode}
+        lastResponseTime={lastResponseTime}
       />
 
       {showPalette && (
