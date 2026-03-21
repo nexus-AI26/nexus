@@ -63,20 +63,6 @@ interface WelcomeCardProps {
   compact?: boolean;
 }
 
-export function NexusSymbol({ theme, compact = false }: { theme: Theme; compact?: boolean }) {
-  return (
-    <Box flexDirection="column" marginY={compact ? 0 : 1} alignItems="center">
-      <Text color={theme.primary}>  ▟█▙      ▟█▙  </Text>
-      <Text color={theme.primary}>  ▝██▙    ▟██▘  </Text>
-      {!compact && <Text color={theme.primary}>   ▝██▙  ▟██▘   </Text>}
-      <Text color={theme.primary}>    ▝██████▘    </Text>
-      <Text color={theme.primary}>    ▟██████▙    </Text>
-      {!compact && <Text color={theme.primary}>   ▟██▘  ▝██▙   </Text>}
-      <Text color={theme.primary}>  ▟██▘    ▝██▙  </Text>
-    </Box>
-  );
-}
-
 export function WelcomeCard({ theme, version, provider, model, cwd, compact = false }: WelcomeCardProps) {
   const shortCwd = useMemo(() => {
     const parts = cwd.split(path.sep);
@@ -104,7 +90,9 @@ export function WelcomeCard({ theme, version, provider, model, cwd, compact = fa
            <Box flexDirection="column" width={compact ? '100%' : '40%'} alignItems="center" borderRight={!compact} borderRightColor={theme.border} paddingRight={compact ? 0 : 2} paddingY={compact ? 0 : 1}>
               {!compact && <Text bold color={theme.accent}>Welcome back!</Text>}
               
-              <NexusSymbol theme={theme} compact={compact} />
+              <Box marginY={compact ? 0 : 1}>
+                <Logo theme={theme} compact={compact} />
+              </Box>
 
               <Box gap={2} flexDirection={compact ? 'row' : 'column'} alignItems="center">
                 <Text color={theme.secondary}>{provider} · {model}</Text>
