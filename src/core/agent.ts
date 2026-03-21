@@ -74,6 +74,7 @@ export class Agent {
 
       const runProviderOnce = async (messagesToSend: Message[]) => {
         let localText = '';
+        let hadError = false;
         const localTools: Array<{ id: string; name: string; args: Record<string, unknown> }> = [];
         const onChunk: StreamCallback = (chunk) => {
           if (chunk.type === 'text' && chunk.content) {
@@ -81,6 +82,7 @@ export class Agent {
             this.emit({ type: 'text', content: chunk.content });
           }
           if (chunk.type === 'error') {
+            hadError = true;
             this.emit({ type: 'error', message: chunk.error ?? 'Unknown error' });
           }
           if (chunk.type === 'tool_call' && chunk.toolName) {
@@ -102,7 +104,7 @@ export class Agent {
           signal: this.abortController!.signal,
         }, onChunk);
 
-        return { text: localText, tools: localTools };
+        return { text: localText, tools: localTools, error: hadError };
       };
 
       try {
@@ -111,8 +113,8 @@ export class Agent {
         pendingReqTools = firstPass.tools;
 
         // Some models occasionally return an empty streamed response on first attempt.
-        // Retry once with a direct nudge before falling back.
-        if (!accText && pendingReqTools.length === 0 && this.abortController) {
+        // Retry once with a direct nudge before falling back, UNLESS we hit a hard API error.
+        if (!accText && pendingReqTools.length === 0 && !firstPass.error && this.abortController) {
           const retryMessages: Message[] = [
             ...this.session.messages,
             { role: 'user', content: 'Please respond directly to the previous user request in plain text.' },
