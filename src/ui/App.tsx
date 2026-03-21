@@ -38,7 +38,6 @@ export function App() {
   const [paletteIndex, setPaletteIndex] = useState(0);
   const [verboseMode, setVerboseMode] = useState(false);
   const [setupMode, setSetupMode] = useState(isFirstRun());
-  const [logoShown, setLogoShown] = useState(true);
   const [pendingSubmission, setPendingSubmission] = useState<string | null>(null);
   const isRunning = useRef(false);
 
@@ -59,7 +58,6 @@ export function App() {
     setIsThinking(false);
     setIsWriting(false);
     isRunning.current = false;
-    setLogoShown(true);
     process.stdout.write('\x1Bc');
   }, []);
 
@@ -218,7 +216,6 @@ export function App() {
       setInput('');
       setShowPalette(false);
       setPaletteIndex(0);
-      setLogoShown(false);
       if (isRunning.current) {
         setPendingSubmission(text);
         setMessages(prev => [...prev, {
@@ -318,9 +315,7 @@ export function App() {
 
   return (
     <Box flexDirection="column" height="100%">
-      {logoShown && messages.length === 0 && (
-        <Logo theme={theme} />
-      )}
+      <Logo theme={theme} />
 
       <MessageList
         messages={displayMsgs}
