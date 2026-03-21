@@ -62,6 +62,20 @@ interface WelcomeCardProps {
   cwd: string;
 }
 
+export function NexusSymbol({ theme }: { theme: Theme }) {
+  return (
+    <Box flexDirection="column" marginY={1} alignItems="center">
+      <Text color={theme.primary}>  ▟█▙      ▟█▙  </Text>
+      <Text color={theme.primary}>  ▝██▙    ▟██▘  </Text>
+      <Text color={theme.primary}>   ▝██▙  ▟██▘   </Text>
+      <Text color={theme.primary}>    ▝██████▘    </Text>
+      <Text color={theme.primary}>    ▟██████▙    </Text>
+      <Text color={theme.primary}>   ▟██▘  ▝██▙   </Text>
+      <Text color={theme.primary}>  ▟██▘    ▝██▙  </Text>
+    </Box>
+  );
+}
+
 export function WelcomeCard({ theme, version, provider, model, cwd }: WelcomeCardProps) {
   const shortCwd = useMemo(() => {
     const parts = cwd.split(path.sep);
@@ -79,9 +93,11 @@ export function WelcomeCard({ theme, version, provider, model, cwd }: WelcomeCar
         flexDirection="column"
         paddingX={1}
       >
-        <Box justifyContent="space-between" paddingX={1} marginTop={-1}>
-           <Text color={theme.muted}>╭─── <Text bold color={theme.primary}>Nexus CLI v{version}</Text> </Text>
-           <Text color={theme.muted}>──────────────────────────────────────────╮</Text>
+        {/* Custom Header with integrated title */}
+        <Box paddingX={1} marginTop={-1}>
+           <Text color={theme.border}>─── </Text>
+           <Text bold color={theme.primary}>Nexus CLI v{version}</Text>
+           <Text color={theme.border}> ──────────────────────────────────────────</Text>
         </Box>
 
         <Box paddingY={1}>
@@ -89,16 +105,6 @@ export function WelcomeCard({ theme, version, provider, model, cwd }: WelcomeCar
            <Box flexDirection="column" width="40%" alignItems="center" borderRight borderRightColor={theme.border} paddingRight={2}>
               <Text bold color={theme.accent}>Welcome back!</Text>
               
-              <Box flexDirection="column" marginY={1} alignItems="center">
-                <Text color={theme.primary}>  ▟█▙      ▟█▙  </Text>
-                <Text color={theme.primary}>  ▝██▙    ▟██▘  </Text>
-                <Text color={theme.primary}>   ▝██▙  ▟██▘   </Text>
-                <Text color={theme.primary}>    ▝██████▘    </Text>
-                <Text color={theme.primary}>    ▟██████▙    </Text>
-                <Text color={theme.primary}>   ▟██▘  ▝██▙   </Text>
-                <Text color={theme.primary}>  ▟██▘    ▝██▙  </Text>
-              </Box>
-
               <Text color={theme.secondary}>{provider} · {model}</Text>
               <Text color={theme.muted} dimColor>{shortCwd}</Text>
            </Box>
