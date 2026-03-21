@@ -70,36 +70,57 @@ export class Agent {
       
       const provider = createProvider(this.session.provider);
       let accText = '';
-      const pendingReqTools: Array<{ id: string; name: string; args: Record<string, unknown> }> = [];
+      let pendingReqTools: Array<{ id: string; name: string; args: Record<string, unknown> }> = [];
 
-      const onChunk: StreamCallback = (chunk) => {
-        if (chunk.type === 'text' && chunk.content) {
-          accText += chunk.content;
-          this.emit({ type: 'text', content: chunk.content });
-        }
-        if (chunk.type === 'error') {
-          this.emit({ type: 'error', message: chunk.error ?? 'Unknown error' });
-        }
-        if (chunk.type === 'tool_call' && chunk.toolName) {
-          pendingReqTools.push({
-            id: chunk.toolCallId || Date.now().toString() + Math.random().toString(),
-            name: chunk.toolName,
-            args: (chunk.toolArgs ?? {}) as Record<string, unknown>
-          });
-        }
-        // We ignore chunk.type === 'done' here, as we manually handle the end of the stream below.
-      };
+      const runProviderOnce = async (messagesToSend: Message[]) => {
+        let localText = '';
+        const localTools: Array<{ id: string; name: string; args: Record<string, unknown> }> = [];
+        const onChunk: StreamCallback = (chunk) => {
+          if (chunk.type === 'text' && chunk.content) {
+            localText += chunk.content;
+            this.emit({ type: 'text', content: chunk.content });
+          }
+          if (chunk.type === 'error') {
+            this.emit({ type: 'error', message: chunk.error ?? 'Unknown error' });
+          }
+          if (chunk.type === 'tool_call' && chunk.toolName) {
+            localTools.push({
+              id: chunk.toolCallId || Date.now().toString() + Math.random().toString(),
+              name: chunk.toolName,
+              args: (chunk.toolArgs ?? {}) as Record<string, unknown>,
+            });
+          }
+        };
 
-      try {
-        await provider.chat(this.session.messages, {
+        await provider.chat(messagesToSend, {
           apiKey,
           model: this.session.model,
           baseUrl: cfg.customBaseUrl,
           maxTokens: cfg.maxTokens,
           temperature: cfg.temperature,
           systemPrompt: cfg.systemPrompt,
-          signal: this.abortController.signal,
+          signal: this.abortController!.signal,
         }, onChunk);
+
+        return { text: localText, tools: localTools };
+      };
+
+      try {
+        const firstPass = await runProviderOnce(this.session.messages);
+        accText = firstPass.text;
+        pendingReqTools = firstPass.tools;
+
+        // Some models occasionally return an empty streamed response on first attempt.
+        // Retry once with a direct nudge before falling back.
+        if (!accText && pendingReqTools.length === 0 && this.abortController) {
+          const retryMessages: Message[] = [
+            ...this.session.messages,
+            { role: 'user', content: 'Please respond directly to the previous user request in plain text.' },
+          ];
+          const retryPass = await runProviderOnce(retryMessages);
+          accText = retryPass.text;
+          pendingReqTools = retryPass.tools;
+        }
 
         if (accText) {
           this.session.messages.push({ role: 'assistant', content: accText, timestamp: Date.now() });
