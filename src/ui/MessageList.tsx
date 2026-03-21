@@ -164,7 +164,7 @@ export function MessageList({ messages, theme, toolEvents, streamBuffer, isThink
         </Box>
       )}
 
-      {showThinking && isWriting && (
+      {showThinking && isWriting && !streamBuffer && (
         <Box>
           <Text color={theme.primary} bold>✦ </Text>
           <Text color={theme.muted}>writing</Text>
