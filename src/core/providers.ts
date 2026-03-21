@@ -1,14 +1,16 @@
 export interface Message {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
+  thought?: string;
   toolName?: string;
   toolCallId?: string;
   timestamp?: number;
 }
 
 export interface StreamChunk {
-  type: 'text' | 'tool_call' | 'tool_call_delta' | 'error' | 'done';
+  type: 'text' | 'tool_call' | 'tool_call_delta' | 'thought' | 'error' | 'done';
   content?: string;
+  thought?: string;
   toolName?: string;
   toolArgs?: Record<string, unknown>;
   toolArgsDelta?: string;
@@ -293,6 +295,9 @@ async function parseSSEStream(stream: NodeJS.ReadableStream, onChunk: StreamCall
 
         if (delta.content) {
           onChunk({ type: 'text', content: delta.content });
+        }
+        if (delta.thought || delta.reasoning || delta.reasoning_content) {
+          onChunk({ type: 'thought', thought: delta.thought || delta.reasoning || delta.reasoning_content });
         }
         if (delta.tool_calls) {
           for (const tc of delta.tool_calls) {
