@@ -54,6 +54,9 @@ Inside nexus, type / to open the command palette.
   }
 
   loadProjectContext();
+  
+  // Enter alternate buffer
+  process.stdout.write('\x1B[?1049h\x1B[2J\x1B[H');
 
   try {
     const { waitUntilExit } = render(React.createElement(App), {
@@ -61,7 +64,8 @@ Inside nexus, type / to open the command palette.
     });
     await waitUntilExit();
   } finally {
-    process.stdout.write('\x1b[?25h');
+    // Exit alternate buffer and show cursor
+    process.stdout.write('\x1B[?1049l\x1B[?25h');
   }
 }
 
