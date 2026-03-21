@@ -94,7 +94,6 @@ export function WelcomeCard({ theme, version, provider, model, cwd, compact = fa
         flexDirection="column"
         paddingX={1}
       >
-        {/* Custom Header with integrated title */}
         <Box paddingX={1} marginTop={-1}>
            <Text color={theme.border}>─── </Text>
            <Text bold color={theme.primary}>Nexus CLI v{version}</Text>
@@ -102,7 +101,6 @@ export function WelcomeCard({ theme, version, provider, model, cwd, compact = fa
         </Box>
 
         <Box paddingY={compact ? 0 : 1}>
-           {/* Left Column */}
            <Box flexDirection="column" width={compact ? '100%' : '40%'} alignItems="center" borderRight={!compact} borderRightColor={theme.border} paddingRight={compact ? 0 : 2} paddingY={compact ? 0 : 1}>
               {!compact && <Text bold color={theme.accent}>Welcome back!</Text>}
               
@@ -114,7 +112,6 @@ export function WelcomeCard({ theme, version, provider, model, cwd, compact = fa
               </Box>
            </Box>
 
-           {/* Right Column */}
            {!compact && (
              <Box flexDirection="column" width="60%" paddingLeft={2}>
                 <Text bold color={theme.primary}>Tips for getting started</Text>
