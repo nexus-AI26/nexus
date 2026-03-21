@@ -1,4 +1,4 @@
-import { execSync, exec } from 'child_process';
+import { exec } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import { promisify } from 'util';
@@ -102,13 +102,44 @@ export const tools: Record<string, ToolDef> = {
         const pattern = String(args.pattern ?? '');
         const dir = String(args.directory ?? process.cwd());
         const resolved = path.resolve(process.cwd(), dir);
-        const cmd = process.platform === 'win32'
-          ? `findstr /s /n /i "${pattern}" "${resolved}\\*.*"`
-          : `grep -r -n --include="*" "${pattern}" "${resolved}"`;
-        const { stdout } = await execAsync(cmd, { timeout: 15000 });
-        return { output: stdout || 'No matches found.', success: true };
+        if (!pattern.trim()) {
+          return { output: '', error: 'Missing required argument: pattern', success: false };
+        }
+        if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
+          return { output: '', error: `Directory not found: ${resolved}`, success: false };
+        }
+
+        const files = collectFiles(resolved, 2000);
+        const needle = pattern.toLowerCase();
+        const results: string[] = [];
+
+        for (const filePath of files) {
+          // Skip very large files to keep tool responsive.
+          const stat = fs.statSync(filePath);
+          if (stat.size > 1024 * 1024) continue;
+
+          let content = '';
+          try {
+            content = fs.readFileSync(filePath, 'utf8');
+          } catch {
+            continue;
+          }
+
+          const lines = content.split('\n');
+          for (let i = 0; i < lines.length; i++) {
+            const line = lines[i] ?? '';
+            if (line.toLowerCase().includes(needle)) {
+              const rel = path.relative(resolved, filePath) || filePath;
+              results.push(`${rel}:${i + 1}:${line}`);
+              if (results.length >= 200) break;
+            }
+          }
+          if (results.length >= 200) break;
+        }
+
+        return { output: results.length > 0 ? results.join('\n') : 'No matches found.', success: true };
       } catch (e: unknown) {
-        return { output: 'No matches found.', success: true };
+        return { output: '', error: String(e), success: false };
       }
     },
   },
@@ -191,4 +222,33 @@ function decodeHtmlEntities(input: string): string {
     .replace(/&#39;|&#x27;/gi, "'")
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>');
+}
+
+function collectFiles(root: string, maxFiles: number): string[] {
+  const out: string[] = [];
+  const stack: string[] = [root];
+  const ignored = new Set(['.git', 'node_modules', 'dist', 'build', '.next', '.cursor']);
+
+  while (stack.length > 0 && out.length < maxFiles) {
+    const current = stack.pop()!;
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(current, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+
+    for (const entry of entries) {
+      if (entry.name.startsWith('.DS_Store')) continue;
+      const fullPath = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        if (!ignored.has(entry.name)) stack.push(fullPath);
+      } else if (entry.isFile()) {
+        out.push(fullPath);
+        if (out.length >= maxFiles) break;
+      }
+    }
+  }
+
+  return out;
 }
