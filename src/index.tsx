@@ -1,197 +1,321 @@
-export interface Theme {
-  name: string;
-  label: string;
-  primary: string;
-  secondary: string;
-  accent: string;
-  success: string;
-  error: string;
-  warning: string;
-  muted: string;
-  border: string;
-  bg: string;
-  userMsg: string;
-  assistantMsg: string;
-  toolMsg: string;
-  cmdPaletteBg: string;
-  statusBg: string;
+import type { Command } from '../ui/CommandPalette.js';
+import { getConfig, setConfig, setApiKey, PROVIDER_MODELS } from '../core/config.js';
+import { getTheme, themeNames, type Theme } from '../themes/index.js';
+import { listSessions } from '../core/session.js';
+import type { Agent } from '../core/agent.js';
+import * as fs from 'fs';
+import * as path from 'path';
+
+export interface CommandResult {
+  type: 'message' | 'theme_change' | 'clear' | 'exit' | 'noop' | 'error';
+  message?: string;
+  theme?: string;
 }
 
-export const themes: Record<string, Theme> = {
-  dracula: {
-    name: 'dracula',
-    label: 'Dracula',
-    primary: '#bd93f9',
-    secondary: '#8be9fd',
-    accent: '#ff79c6',
-    success: '#50fa7b',
-    error: '#ff5555',
-    warning: '#ffb86c',
-    muted: '#6272a4',
-    border: '#44475a',
-    bg: '#282a36',
-    userMsg: '#f8f8f2',
-    assistantMsg: '#bd93f9',
-    toolMsg: '#ffb86c',
-    cmdPaletteBg: '#44475a',
-    statusBg: '#44475a',
-  },
-
-  tokyonight: {
-    name: 'tokyonight',
-    label: 'Tokyo Night',
-    primary: '#7aa2f7',
-    secondary: '#bb9af7',
-    accent: '#73daca',
-    success: '#9ece6a',
-    error: '#f7768e',
-    warning: '#e0af68',
-    muted: '#565f89',
-    border: '#3b4261',
-    bg: '#1a1b26',
-    userMsg: '#c0caf5',
-    assistantMsg: '#7aa2f7',
-    toolMsg: '#e0af68',
-    cmdPaletteBg: '#24283b',
-    statusBg: '#24283b',
-  },
-
-  monokai: {
-    name: 'monokai',
-    label: 'Monokai',
-    primary: '#66d9e8',
-    secondary: '#a6e22e',
-    accent: '#f92672',
-    success: '#a6e22e',
-    error: '#f92672',
-    warning: '#fd971f',
-    muted: '#75715e',
-    border: '#49483e',
-    bg: '#272822',
-    userMsg: '#f8f8f2',
-    assistantMsg: '#66d9e8',
-    toolMsg: '#fd971f',
-    cmdPaletteBg: '#3e3d32',
-    statusBg: '#49483e',
-  },
-
-  catppuccin: {
-    name: 'catppuccin',
-    label: 'Catppuccin',
-    primary: '#cba6f7',
-    secondary: '#89dceb',
-    accent: '#f38ba8',
-    success: '#a6e3a1',
-    error: '#f38ba8',
-    warning: '#fab387',
-    muted: '#585b70',
-    border: '#45475a',
-    bg: '#1e1e2e',
-    userMsg: '#cdd6f4',
-    assistantMsg: '#cba6f7',
-    toolMsg: '#fab387',
-    cmdPaletteBg: '#313244',
-    statusBg: '#313244',
-  },
-
-  nord: {
-    name: 'nord',
-    label: 'Nord',
-    primary: '#88c0d0',
-    secondary: '#81a1c1',
-    accent: '#b48ead',
-    success: '#a3be8c',
-    error: '#bf616a',
-    warning: '#ebcb8b',
-    muted: '#4c566a',
-    border: '#3b4252',
-    bg: '#2e3440',
-    userMsg: '#eceff4',
-    assistantMsg: '#88c0d0',
-    toolMsg: '#ebcb8b',
-    cmdPaletteBg: '#3b4252',
-    statusBg: '#3b4252',
-  },
-
-  light: {
-    name: 'light',
-    label: 'Light',
-    primary: '#5c6bc0',
-    secondary: '#0097a7',
-    accent: '#e91e63',
-    success: '#43a047',
-    error: '#e53935',
-    warning: '#f57c00',
-    muted: '#9e9e9e',
-    border: '#e0e0e0',
-    bg: '#fafafa',
-    userMsg: '#212121',
-    assistantMsg: '#5c6bc0',
-    toolMsg: '#f57c00',
-    cmdPaletteBg: '#f5f5f5',
-    statusBg: '#e0e0e0',
-  },
-
-  gruvbox: {
-    name: 'gruvbox',
-    label: 'Gruvbox',
-    primary: '#fabd2f',
-    secondary: '#83a598',
-    accent: '#fe8019',
-    success: '#b8bb26',
-    error: '#fb4934',
-    warning: '#d79921',
-    muted: '#928374',
-    border: '#504945',
-    bg: '#282828',
-    userMsg: '#ebdbb2',
-    assistantMsg: '#fabd2f',
-    toolMsg: '#d79921',
-    cmdPaletteBg: '#3c3836',
-    statusBg: '#3c3836',
-  },
-
-  solarizeddark: {
-    name: 'solarizeddark',
-    label: 'Solarized Dark',
-    primary: '#268bd2',
-    secondary: '#2aa198',
-    accent: '#b58900',
-    success: '#859900',
-    error: '#dc322f',
-    warning: '#cb4b16',
-    muted: '#586e75',
-    border: '#073642',
-    bg: '#002b36',
-    userMsg: '#93a1a1',
-    assistantMsg: '#268bd2',
-    toolMsg: '#cb4b16',
-    cmdPaletteBg: '#073642',
-    statusBg: '#073642',
-  },
-
-  githubdark: {
-    name: 'githubdark',
-    label: 'GitHub Dark',
-    primary: '#58a6ff',
-    secondary: '#79c0ff',
-    accent: '#a371f7',
-    success: '#3fb950',
-    error: '#f85149',
-    warning: '#d29922',
-    muted: '#8b949e',
-    border: '#30363d',
-    bg: '#0d1117',
-    userMsg: '#c9d1d9',
-    assistantMsg: '#58a6ff',
-    toolMsg: '#d29922',
-    cmdPaletteBg: '#161b22',
-    statusBg: '#161b22',
-  },
-};
-
-export function getTheme(name: string): Theme {
-  return themes[name] ?? themes['dracula']!;
+export function getCommandList(): Command[] {
+  return [
+    { name: 'help', description: 'Show all available commands', aliases: ['h', '?'] },
+    { name: 'clear', description: 'Clear conversation history', aliases: ['reset', 'new'] },
+    { name: 'model', description: 'Switch the active model', args: '[model-name]', aliases: ['m'] },
+    { name: 'provider', description: 'Switch the AI provider', args: '[openai|anthropic|openrouter|custom]', aliases: ['p'] },
+    { name: 'key', description: 'Set API key for a provider', args: '[provider] [api-key]', aliases: ['apikey'] },
+    { name: 'theme', description: 'Change the color theme', args: '[theme-name]', aliases: ['t', 'colors'] },
+    { name: 'init', description: 'Initialize NEXUS.md project context file' },
+    { name: 'file', description: 'Attach a file to your next message', args: '[path]', aliases: ['f', 'attach'] },
+    { name: 'run', description: 'Execute a shell command', args: '[command]', aliases: ['exec', '!'] },
+    { name: 'review', description: 'Enter code review mode for a file', args: '[file]' },
+    { name: 'compact', description: 'Compact conversation history to save context', aliases: ['compress'] },
+    { name: 'save', description: 'Save current session', args: '[name]', aliases: ['s'] },
+    { name: 'load', description: 'Load a saved session', args: '[name]', aliases: ['l'] },
+    { name: 'sessions', description: 'List all saved sessions', aliases: ['ls'] },
+    { name: 'status', description: 'Show current configuration', aliases: ['info', 'config'] },
+    { name: 'models', description: 'List available models for current provider' },
+    { name: 'themes', description: 'List all available themes' },
+    { name: 'undo', description: 'Remove the last AI message from history' },
+    { name: 'copy', description: 'Copy last AI response to clipboard (if supported)' },
+    { name: 'exit', description: 'Exit nexus', aliases: ['quit', 'q', 'bye'] },
+  ];
 }
 
-export const themeNames = Object.keys(themes);
+export async function executeCommand(
+  input: string,
+  agent: Agent,
+  onOutput: (msg: string) => void,
+  onThemeChange: (theme: string) => void,
+  onClear: () => void,
+  onExit: () => void,
+): Promise<CommandResult> {
+  const parts = input.trim().replace(/^\//, '').split(/\s+/);
+  const cmd = parts[0]?.toLowerCase() ?? '';
+  const args = parts.slice(1);
+
+  switch (cmd) {
+    case 'help':
+    case 'h':
+    case '?': {
+      const cmds = getCommandList();
+      const lines = ['', '  ✦ nexus — Available Commands', '  ' + '─'.repeat(40), ''];
+      for (const c of cmds) {
+        const aliases = c.aliases ? ` (${c.aliases.map(a => '/' + a).join(', ')})` : '';
+        const argStr = c.args ? ` <${c.args}>` : '';
+        lines.push(`  /${c.name}${argStr}${aliases}`);
+        lines.push(`     ${c.description}`);
+        lines.push('');
+      }
+      onOutput(lines.join('\n'));
+      return { type: 'noop' };
+    }
+
+    case 'clear':
+    case 'reset':
+    case 'new':
+      onClear();
+      return { type: 'clear' };
+
+    case 'model':
+    case 'm': {
+      if (args[0]) {
+        agent.setModel(args[0]);
+        onOutput(`✦ Model switched to: ${args[0]}`);
+      } else {
+        const cfg = getConfig();
+        onOutput(`✦ Current model: ${cfg.model}\nUse /model <name> to switch.`);
+      }
+      return { type: 'noop' };
+    }
+
+    case 'models': {
+      const cfg = getConfig();
+      const models = PROVIDER_MODELS[cfg.provider] ?? [];
+      if (models.length === 0) {
+        onOutput(`✦ No preset models for provider "${cfg.provider}". Enter model name manually with /model <name>.`);
+      } else {
+        onOutput(`✦ Models for ${cfg.provider}:\n${models.map((m, i) => `  ${i === 0 ? '▶' : ' '} ${m}`).join('\n')}`);
+      }
+      return { type: 'noop' };
+    }
+
+    case 'provider':
+    case 'p': {
+      if (args[0]) {
+        agent.setProvider(args[0]);
+        onOutput(`✦ Provider switched to: ${args[0]}\nModel set to: ${agent.model}`);
+      } else {
+        const cfg = getConfig();
+        onOutput(`✦ Current provider: ${cfg.provider}\nAvailable: openai, anthropic, openrouter, custom`);
+      }
+      return { type: 'noop' };
+    }
+
+    case 'key':
+    case 'apikey': {
+      if (args.length >= 2) {
+        agent.setApiKey(args[0]!, args[1]!);
+        onOutput(`✦ API key set for ${args[0]}`);
+      } else if (args.length === 1) {
+        const cfg = getConfig();
+        agent.setApiKey(cfg.provider, args[0]!);
+        onOutput(`✦ API key set for ${cfg.provider}`);
+      } else {
+        onOutput('✦ Usage: /key [provider] <api-key>');
+      }
+      return { type: 'noop' };
+    }
+
+    case 'theme':
+    case 't':
+    case 'colors': {
+      if (args[0]) {
+        if (!themeNames.includes(args[0])) {
+          onOutput(`✦ Unknown theme "${args[0]}". Available: ${themeNames.join(', ')}`);
+        } else {
+          setConfig('theme', args[0]);
+          onThemeChange(args[0]);
+          onOutput(`✦ Theme changed to: ${args[0]}`);
+        }
+      } else {
+        const cfg = getConfig();
+        onOutput(`✦ Current theme: ${cfg.theme}\nAvailable: ${themeNames.join(', ')}`);
+      }
+      return { type: 'theme_change', theme: args[0] };
+    }
+
+    case 'themes': {
+      const { getTheme: gt } = await import('../themes/index.js');
+      const lines = themeNames.map(t => `  ${t === getConfig().theme ? '▶' : ' '} ${gt(t).label}`);
+      onOutput('✦ Available Themes:\n' + lines.join('\n'));
+      return { type: 'noop' };
+    }
+
+    case 'init': {
+      const filePath = path.join(process.cwd(), 'NEXUS.md');
+      if (fs.existsSync(filePath)) {
+        onOutput(`✦ NEXUS.md already exists at ${filePath}`);
+      } else {
+        const content = `# NEXUS Project Context
+
+## Project Description
+<!-- Describe what this project does -->
+
+## Architecture
+<!-- Key directories and their purpose -->
+
+## Tech Stack
+<!-- Languages, frameworks, tools used -->
+
+## Coding Conventions
+<!-- Style guides, naming, patterns to follow -->
+
+## Key Commands
+<!-- How to build, run, test this project -->
+`;
+        fs.writeFileSync(filePath, content, 'utf8');
+        onOutput(`✦ Created NEXUS.md at ${filePath}\nAdd project context to help nexus understand your codebase.`);
+      }
+      return { type: 'noop' };
+    }
+
+    case 'compact':
+    case 'compress': {
+      const before = agent.messages.length;
+      agent.compact();
+      const after = agent.messages.length;
+      onOutput(`✦ Compacted: ${before} → ${after} messages`);
+      return { type: 'noop' };
+    }
+
+    case 'save':
+    case 's': {
+      const name = args[0] ?? `session-${Date.now()}`;
+      agent.saveCurrentSession(name);
+      onOutput(`✦ Session saved as "${name}"`);
+      return { type: 'noop' };
+    }
+
+    case 'load':
+    case 'l': {
+      if (!args[0]) {
+        onOutput('✦ Usage: /load <session-name>');
+        return { type: 'noop' };
+      }
+      const ok = agent.loadNamedSession(args[0]);
+      if (ok) {
+        onOutput(`✦ Loaded session "${args[0]}" (${agent.messages.length} messages)`);
+      } else {
+        onOutput(`✦ Session "${args[0]}" not found. Use /sessions to list all.`);
+      }
+      return { type: 'noop' };
+    }
+
+    case 'sessions':
+    case 'ls': {
+      const sessions = agent.listSavedSessions();
+      if (sessions.length === 0) {
+        onOutput('✦ No saved sessions. Use /save <name> to save one.');
+      } else {
+        const lines = sessions.map(s => {
+          const date = new Date(s.updatedAt).toLocaleString();
+          return `  ${s.name} (${s.messages} msgs, ${date})`;
+        });
+        onOutput('✦ Saved Sessions:\n' + lines.join('\n'));
+      }
+      return { type: 'noop' };
+    }
+
+    case 'status':
+    case 'info':
+    case 'config': {
+      const cfg = getConfig();
+      const keyPreview = (k: string) => k ? k.slice(0, 6) + '…' : 'not set';
+      onOutput([
+        '✦ nexus Status',
+        '─'.repeat(30),
+        `Provider:    ${cfg.provider}`,
+        `Model:       ${cfg.model}`,
+        `Theme:       ${cfg.theme}`,
+        `Max tokens:  ${cfg.maxTokens}`,
+        `Temperature: ${cfg.temperature}`,
+        `OpenAI key:  ${keyPreview(cfg.apiKeys['openai'] ?? '')}`,
+        `Anthropic:   ${keyPreview(cfg.apiKeys['anthropic'] ?? '')}`,
+        `OpenRouter:  ${keyPreview(cfg.apiKeys['openrouter'] ?? '')}`,
+        `CWD:         ${process.cwd()}`,
+      ].join('\n'));
+      return { type: 'noop' };
+    }
+
+    case 'undo': {
+      const msgs = agent.messages;
+      const lastAssistant = [...msgs].reverse().findIndex(m => m.role === 'assistant');
+      if (lastAssistant === -1) {
+        onOutput('✦ Nothing to undo.');
+      } else {
+        const idx = msgs.length - 1 - lastAssistant;
+        msgs.splice(idx, 1);
+        onOutput('✦ Removed last assistant message.');
+      }
+      return { type: 'noop' };
+    }
+
+    case 'file':
+    case 'f':
+    case 'attach': {
+      if (!args[0]) {
+        onOutput('✦ Usage: /file <path>');
+        return { type: 'noop' };
+      }
+      const p = path.resolve(process.cwd(), args[0]);
+      if (!fs.existsSync(p)) {
+        onOutput(`✦ File not found: ${p}`);
+        return { type: 'error', message: `File not found: ${p}` };
+      }
+      const content = fs.readFileSync(p, 'utf8');
+      const ext = path.extname(p).replace('.', '') || 'text';
+      const msg = `[File: ${p}]\n\`\`\`${ext}\n${content}\n\`\`\``;
+      return { type: 'message', message: msg };
+    }
+
+    case 'review': {
+      if (!args[0]) {
+        onOutput('✦ Usage: /review <file-path>');
+        return { type: 'noop' };
+      }
+      const p = path.resolve(process.cwd(), args[0]);
+      if (!fs.existsSync(p)) {
+        onOutput(`✦ File not found: ${p}`);
+        return { type: 'error' };
+      }
+      const content = fs.readFileSync(p, 'utf8');
+      const ext = path.extname(p).replace('.', '') || 'text';
+      const msg = `Please do a thorough code review of this file. Look for bugs, security issues, performance problems, and style improvements.\n\n[File: ${p}]\n\`\`\`${ext}\n${content}\n\`\`\``;
+      return { type: 'message', message: msg };
+    }
+
+    case 'run':
+    case 'exec':
+    case '!': {
+      if (!args[0]) {
+        onOutput('✦ Usage: /run <command>');
+        return { type: 'noop' };
+      }
+      const command = args.join(' ');
+      const msg = `Run this shell command and show me the output: \`${command}\``;
+      return { type: 'message', message: msg };
+    }
+
+    case 'copy': {
+      onOutput('✦ Clipboard copy is not supported in this environment.');
+      return { type: 'noop' };
+    }
+
+    case 'exit':
+    case 'quit':
+    case 'q':
+    case 'bye':
+      onExit();
+      return { type: 'exit' };
+
+    default:
+      onOutput(`✦ Unknown command: /${cmd}\nType /help to see all commands.`);
+      return { type: 'error', message: `Unknown command: /${cmd}` };
+  }
+}
