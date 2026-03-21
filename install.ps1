@@ -17,16 +17,32 @@ if (Test-Path $DestDir) {
     Remove-Item -Recurse -Force $DestDir
 }
 git clone https://github.com/nexus-AI26/nexus.git $DestDir
+if (-not $?) {
+    Write-Error "git clone failed."
+    exit 1
+}
 
 Write-Host "[2/4] Installing dependencies..."
 Set-Location $DestDir
 npm install
+if (-not $?) {
+    Write-Error "npm install failed."
+    exit 1
+}
 
 Write-Host "[3/4] Building TypeScript..."
 npm run build
+if (-not $?) {
+    Write-Error "TypeScript build failed. Fix errors above, or ensure src/index.tsx is the Ink entry (./ imports), not a copy of commands/index.ts."
+    exit 1
+}
 
 Write-Host "[4/4] Linking globally..."
 npm link
+if (-not $?) {
+    Write-Error "npm link failed."
+    exit 1
+}
 
 Write-Host "`n✦ nexus installed successfully!" -ForegroundColor Green
 Write-Host "Type 'nexus' in your terminal to get started."
