@@ -229,6 +229,21 @@ function getToolDefinitions() {
         parameters: { type: 'object', properties: { pattern: { type: 'string' }, directory: { type: 'string' } }, required: ['pattern'] },
       },
     },
+    {
+      type: 'function',
+      function: {
+        name: 'web_search',
+        description: 'Search the web and return top links',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Search query string' },
+            limit: { type: 'number', description: 'Max number of results to return (1-10)' },
+          },
+          required: ['query'],
+        },
+      },
+    },
   ];
 }
 
@@ -239,6 +254,7 @@ function getAnthropicToolDefinitions() {
     { name: 'run_command', description: 'Execute a shell command', input_schema: { type: 'object', properties: { command: { type: 'string' } }, required: ['command'] } },
     { name: 'list_directory', description: 'List files in a directory', input_schema: { type: 'object', properties: { path: { type: 'string' } }, required: [] } },
     { name: 'search_files', description: 'Search for a pattern in files', input_schema: { type: 'object', properties: { pattern: { type: 'string' }, directory: { type: 'string' } }, required: ['pattern'] } },
+    { name: 'web_search', description: 'Search the web and return top links', input_schema: { type: 'object', properties: { query: { type: 'string' }, limit: { type: 'number' } }, required: ['query'] } },
   ];
 }
 
