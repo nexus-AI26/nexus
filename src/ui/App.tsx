@@ -4,7 +4,7 @@ import { getConfig, setConfig, isFirstRun, hasApiKey, setApiKey as setKey, PROVI
 import { getTheme, type Theme } from '../themes/index.js';
 import { agent, type AgentEvent } from '../core/agent.js';
 import { getCommandList, executeCommand } from '../commands/index.js';
-import { Logo, WelcomeCard } from './Logo.js';
+import { Logo, WelcomeCard, NexusSymbol } from './Logo.js';
 import { MessageList, type ToolEvent } from './MessageList.js';
 import { InputBar } from './InputBar.js';
 import { CommandPalette } from './CommandPalette.js';
@@ -381,7 +381,9 @@ export function App() {
 
   return (
     <Box flexDirection="column" height="100%">
-      {displayMsgs.length === 0 ? (
+      <NexusSymbol theme={theme} />
+
+      {displayMsgs.length === 0 && (
         <WelcomeCard 
           theme={theme} 
           version="1.0.0" 
@@ -389,8 +391,6 @@ export function App() {
           model={agent.model} 
           cwd={process.cwd()} 
         />
-      ) : (
-        <Logo theme={theme} compact />
       )}
 
       <MessageList
