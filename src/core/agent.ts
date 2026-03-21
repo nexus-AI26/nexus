@@ -103,6 +103,14 @@ export class Agent {
 
         if (accText) {
           this.session.messages.push({ role: 'assistant', content: accText, timestamp: Date.now() });
+        } else if (pendingReqTools.length === 0) {
+          // Some providers/models may complete without emitting any text/tool chunks.
+          // Show a visible fallback instead of leaving the UI blank.
+          this.session.messages.push({
+            role: 'assistant',
+            content: 'I did not receive a response from the model. Please try again, switch model/provider, or rephrase your request.',
+            timestamp: Date.now(),
+          });
         }
 
         if (pendingReqTools.length > 0) {
@@ -110,7 +118,7 @@ export class Agent {
           for (const tc of pendingReqTools) {
             if (!this.abortController) break;
 
-            const isSafe = ['read_file', 'list_directory', 'search_files'].includes(tc.name);
+            const isSafe = ['read_file', 'list_directory', 'search_files', 'web_search'].includes(tc.name);
             let approved = true;
 
             if (!isSafe) {
