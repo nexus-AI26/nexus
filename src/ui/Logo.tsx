@@ -112,9 +112,7 @@ export function WelcomeCard({ theme, version, provider, model, cwd }: WelcomeCar
           <Box flexDirection="column" alignItems="center" marginY={1}>
             <Text bold color={theme.accent}>Welcome back!</Text>
           </Box>
-          <Box flexDirection="column" alignItems="center" marginBottom={1}>
-            <Logo theme={theme} embedded />
-          </Box>
+          {/* Logo removed here as it is now at the top of App.tsx */}
           <Box flexDirection="column" alignItems="center" marginBottom={1}>
             <Text color={theme.secondary} wrap="wrap">{trunc(`${provider} · ${shortModel}`, textW)}</Text>
             <Text color={theme.muted} dimColor wrap="wrap">{trunc(shortCwd, textW)}</Text>
