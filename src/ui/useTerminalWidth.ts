@@ -1,9 +1,19 @@
 import { useEffect, useState } from 'react';
 
-export function useTerminalWidth(): number {
-  const [cols, setCols] = useState(() => clampCols(process.stdout.columns));
+export function useTerminalSize(): { columns: number; rows: number } {
+  const [size, setSize] = useState(() => ({
+    columns: clampCols(process.stdout.columns),
+    rows: clampRows(process.stdout.rows),
+  }));
+
   useEffect(() => {
-    const onResize = () => setCols(clampCols(process.stdout.columns));
+    const onResize = () => {
+      setSize({
+        columns: clampCols(process.stdout.columns),
+        rows: clampRows(process.stdout.rows),
+      });
+    };
+
     onResize();
     if (!process.stdout.isTTY) return;
     process.stdout.on('resize', onResize);
@@ -11,11 +21,20 @@ export function useTerminalWidth(): number {
       process.stdout.off('resize', onResize);
     };
   }, []);
-  return cols;
+
+  return size;
+}
+
+export function useTerminalWidth(): number {
+  return useTerminalSize().columns;
 }
 
 function clampCols(c: number | undefined): number {
-  return Math.max(40, Math.min(200, c ?? 80));
+  return Math.max(40, Math.min(300, c ?? 80));
+}
+
+function clampRows(r: number | undefined): number {
+  return Math.max(10, Math.min(200, r ?? 24));
 }
 
 export function borderTopLine(width: number, title: string): string {
