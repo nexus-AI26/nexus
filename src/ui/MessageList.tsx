@@ -11,6 +11,7 @@ interface MessageListProps {
   isThinking: boolean;
   isWriting: boolean;
   showThinking: boolean;
+  thinkingLabel: string;
   verbose: boolean;
 }
 
@@ -143,7 +144,7 @@ function ToolEventRow({ event, theme, verbose }: { event: ToolEvent; theme: Them
   return null;
 }
 
-export function MessageList({ messages, theme, toolEvents, streamBuffer, isThinking, isWriting, showThinking, verbose }: MessageListProps) {
+export function MessageList({ messages, theme, toolEvents, streamBuffer, isThinking, isWriting, showThinking, thinkingLabel, verbose }: MessageListProps) {
   const displayMessages = messages.filter(m => m.role !== 'system');
 
   return (
@@ -159,8 +160,7 @@ export function MessageList({ messages, theme, toolEvents, streamBuffer, isThink
       {showThinking && isThinking && !isWriting && !streamBuffer && (
         <Box>
           <Text color={theme.primary} bold>✦ </Text>
-          <Text color={theme.muted}>thinking</Text>
-          <Text color={theme.primary}>…</Text>
+          <Text color={theme.muted}>{thinkingLabel}</Text>
         </Box>
       )}
 
