@@ -66,7 +66,12 @@ function CodeBlock({ code, theme }: { code: string; theme: Theme }) {
       marginY={0}
     >
       {lines.map((line, i) => (
-        <Text key={i} color={theme.secondary}>{line}</Text>
+        <Box key={i} flexDirection="row">
+          <Box width={4} marginRight={1}>
+            <Text color={theme.muted} dimColor>{String(i + 1).padStart(3)}</Text>
+          </Box>
+          <Text color={theme.secondary}>{line || ' '}</Text>
+        </Box>
       ))}
     </Box>
   );
@@ -138,7 +143,7 @@ function MessageBubble({
     ? <Text color={theme.accent} bold>❯ </Text>
     : isTool
     ? null
-    : <Text color={theme.primary} bold>● </Text>;
+    : <Text color={theme.primary}>● </Text>;
 
   return (
     <Box flexDirection="column" marginBottom={1}>
@@ -152,13 +157,13 @@ function MessageBubble({
         {isUser && <Text color={theme.accent} bold>{message.content}</Text>}
         {isTool && (
           <Box flexDirection="column" flexShrink={1}>
-            <Text color={theme.primary} bold>
+            <Text color={theme.primary}>
               ● {toolHeading(message.toolName || 'tool')}
             </Text>
             {(verbose ? message.content.split('\n') : [message.content.slice(0, 150) + (message.content.length > 150 ? '… (Ctrl+B to expand)' : '')]).map((line, i) => (
               <Box key={i} flexDirection="row">
-                <Text color={theme.muted}>⎿ </Text>
-                <Text color={theme.muted} wrap="wrap">{line || ' '}</Text>
+                <Text color={theme.muted} dimColor>  ⎿ </Text>
+                <Text color={theme.muted} dimColor wrap="truncate">{line || ' '}</Text>
               </Box>
             ))}
           </Box>
@@ -178,47 +183,83 @@ function MessageBubble({
   );
 }
 
-function ToolEventRow({ event, theme, verbose, showWork }: { event: ToolEvent; theme: Theme; verbose: boolean; showWork: boolean }) {
-  if (event.type === 'start' || event.type === 'update') {
-    const isCodeWriteTool = ['write_file', 'edit_file', 'apply_patch'].includes(event.name);
-    const pathValue = event.args && typeof event.args.path === 'string' ? event.args.path : null;
-    let contentValue = event.args && typeof event.args.content === 'string' ? event.args.content : null;
-    const actionLabel = isCodeWriteTool ? 'Writing' : 'Running';
+function ToolEventRow({ event, theme, verbose, showWork, w }: { event: ToolEvent; theme: Theme; verbose: boolean; showWork: boolean; w: number }) {
+  const isCodeWriteTool = ['write_file', 'edit_file', 'apply_patch'].includes(event.name);
+  const pathValue = event.args && typeof event.args.path === 'string' ? event.args.path : null;
+  let contentValue = event.args && typeof event.args.content === 'string' ? event.args.content : null;
 
-    if (event.type === 'update' && isCodeWriteTool && event.partialArgs && !contentValue) {
+  if (event.type === 'start' || event.type === 'update') {
+    if (event.type === 'update' && event.partialArgs && !contentValue) {
       const contentMatch = event.partialArgs.match(/"content"\s*:\s*"([\s\S]*?)(?:"|$)/);
+      const commandMatch = event.partialArgs.match(/"command"\s*:\s*"([\s\S]*?)(?:"|$)/);
+      const pathMatch = event.partialArgs.match(/"path"\s*:\s*"([\s\S]*?)(?:"|$)/);
+      
       if (contentMatch && contentMatch[1]) {
         contentValue = contentMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
       }
+      if (commandMatch && commandMatch[1]) {
+        contentValue = commandMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+      }
+      if (pathMatch && pathMatch[1] && !pathValue) {
+         (event as any)._streamingPath = pathMatch[1].replace(/\\"/g, '"');
+      }
     }
 
-    return (
-      <Box flexDirection="column" marginLeft={2}>
-        <Box>
-          <Text color={theme.secondary} bold>✽ </Text>
-          <Text color={theme.secondary}>{actionLabel} </Text>
-          <Text color={theme.secondary} bold>{toolHeading(event.name)}</Text>
-          {pathValue && <Text color={theme.muted}> ({pathValue})</Text>}
-          <Text color={theme.muted}>…</Text>
-        </Box>
-        {!pathValue && event.type === 'update' && event.partialArgs?.includes('"path"') && (
-          <Text color={theme.muted}>
-            Path: {event.partialArgs?.match(/"path"\s*:\s*"([^"]*)"/)?.[1] ?? '…'}
-          </Text>
-        )}
+    const displayPath = pathValue || (event as any)._streamingPath || '…';
 
-        {(verbose || (showWork && isCodeWriteTool && contentValue)) && (
-          <Box borderStyle="single" borderColor={theme.muted} paddingX={1} marginY={0} flexDirection="column">
-            {isCodeWriteTool && contentValue ? (
-              <CodeBlock code={contentValue} theme={theme} />
-            ) : (
-              <Text color={theme.muted}>{event.args ? JSON.stringify(event.args, null, 2) : (event.partialArgs ?? '')}</Text>
-            )}
+    return (
+      <Box flexDirection="column" marginLeft={0} marginBottom={1}>
+        <Box>
+          <Text color={theme.primary}>● </Text>
+          <Text color={theme.secondary}>{toolHeading(event.name)}</Text>
+          <Text color={theme.muted} dimColor>({displayPath})</Text>
+        </Box>
+        {event.type === 'start' && (
+           <Box flexDirection="row">
+              <Text color={theme.muted} dimColor>  ⎿ </Text>
+              <Text color={theme.muted} italic dimColor>Running…</Text>
+           </Box>
+        )}
+        {event.type === 'update' && (
+           <Box flexDirection="row">
+              <Text color={theme.muted} dimColor>  ⎿ </Text>
+              <Text color={theme.muted} italic dimColor>{contentValue ? 'streaming…' : 'preparing…'}</Text>
+           </Box>
+        )}
+        {(verbose || (showWork && contentValue)) && (
+          <Box flexDirection="column" marginTop={1}>
+             {(isCodeWriteTool || event.name === 'run_command') && (
+               <Box flexDirection="column" marginBottom={0}>
+                  <Text color={theme.muted} dimColor>{'─'.repeat(w - 4)}</Text>
+                  <Text color={theme.secondary}> {isCodeWriteTool ? 'Writing file' : 'Running command'}</Text>
+                  <Text color={theme.secondary}> {displayPath}</Text>
+                  <Text color={theme.muted} dimColor>{'╌'.repeat(w - 4)}</Text>
+               </Box>
+             )}
+            <Box borderStyle="single" borderColor={theme.muted} paddingX={1} marginY={0} flexDirection="column" borderTop={false} borderBottom={false} borderLeft={false} borderRight={false}>
+              {contentValue ? (
+                <CodeBlock code={contentValue} theme={theme} />
+              ) : (
+                <Text color={theme.muted}>{event.args ? JSON.stringify(event.args, null, 2) : (event.partialArgs ?? '')}</Text>
+              )}
+            </Box>
+            {(isCodeWriteTool || event.name === 'run_command') && <Text color={theme.muted} dimColor>{'╌'.repeat(w - 4)}</Text>}
           </Box>
         )}
       </Box>
     );
   }
+
+  if (event.type === 'done') {
+    return (
+       <Box flexDirection="row" marginBottom={1}>
+          <Text color={theme.primary}>● </Text>
+          <Text color={theme.secondary}>{toolHeading(event.name)}</Text>
+          <Text color={theme.muted} dimColor>  ⎿ {event.success ? 'Done' : 'Failed'}</Text>
+       </Box>
+    );
+  }
+
   return null;
 }
 
@@ -243,78 +284,79 @@ export function MessageList({
     ? [{ role: 'welcome' as const, ...welcomeData }, ...staticMessages]
     : staticMessages;
 
+  // Windowing for "contained" look. Show last 10 items to avoid terminal overflow in Windows.
+  const windowedItems = items.slice(-10);
+
   return (
-    <Box flexDirection="column" flexGrow={1} paddingX={0}>
-      <Static items={items}>
-        {(msg, i) => {
-          if ((msg as any).role === 'welcome') {
-             const d = msg as any;
-             return (
+    <Box flexDirection="column" flexGrow={1} paddingX={0} overflow="hidden">
+      {windowedItems.map((msg, i) => {
+        if ((msg as any).role === 'welcome') {
+           const d = msg as any;
+           return (
+             <Box key="welcome" flexDirection="column">
                <WelcomeCard
-                 key="welcome"
-                 theme={theme}
-                 version={d.version}
-                 provider={d.provider}
-                 model={d.model}
-                 cwd={d.cwd}
+                  version={d.version}
+                  provider={d.provider}
+                  model={d.model}
+                  cwd={d.cwd}
+                  theme={theme}
                />
-             );
-          }
-          return (
-            <MessageBubble
-              key={i}
-              message={msg as Message}
-              theme={theme}
-              verbose={verbose}
-              terminalWidth={w}
-              modelLabel={modelLabel}
+               {verbose && (
+                 <Box paddingLeft={2} marginBottom={1}>
+                   <Text color={theme.muted} dimColor>
+                     Detailed transcript · Ctrl+O to toggle reasoning · Ctrl+B verbose
+                   </Text>
+                 </Box>
+               )}
+             </Box>
+           );
+        }
+        return (
+          <Box key={i} paddingLeft={2}>
+            <MessageBubble 
+              message={msg as Message} 
+              theme={theme} 
+              verbose={verbose} 
+              terminalWidth={w} 
+              modelLabel={modelLabel} 
             />
-          );
-        }}
-      </Static>
+          </Box>
+        );
+      })}
 
-      {toolEvents.map((ev, i) => (
-        <ToolEventRow key={i} event={ev} theme={theme} verbose={verbose} showWork={showThinking} />
-      ))}
+      <Box flexDirection="column" paddingLeft={2}>
+        {toolEvents.map((ev, i) => (
+          <ToolEventRow key={i} event={ev} theme={theme} verbose={verbose} showWork={showThinking} w={w} />
+        ))}
 
-      {showThinking && isThinking && !isWriting && !streamBuffer && !thoughtBuffer && (
-        <Box marginBottom={1}>
-          <Text color={theme.muted}>✻ Thinking…</Text>
-        </Box>
-      )}
-
-      {(thoughtBuffer || streamBuffer) && (
-        <Box flexDirection="column" marginBottom={1}>
-          {thoughtBuffer && showThinking && (
-            <Box flexDirection="row" marginBottom={streamBuffer ? 1 : 0} alignItems="flex-start">
-              <Text color={theme.muted}>✻ </Text>
-              <Text color={theme.muted} dimColor wrap="wrap">{thoughtBuffer}</Text>
-            </Box>
-          )}
-          {streamBuffer && (
-            <>
-              <Text color={theme.muted} dimColor>{assistantMetaLine(w, Date.now(), modelLabel)}</Text>
-              <Box flexDirection="row" alignItems="flex-start">
-                <Text color={theme.primary} bold>● </Text>
-                <Box flexDirection="column" flexShrink={1}>
-                  {renderContent(streamBuffer, theme)}
+        {(thoughtBuffer || streamBuffer) && (
+          <Box flexDirection="column" marginBottom={1}>
+            {thoughtBuffer && showThinking && (
+              <Box flexDirection="row" marginBottom={streamBuffer ? 1 : 0} alignItems="flex-start">
+                <Text color={theme.muted}>✻ </Text>
+                <Text color={theme.muted} dimColor wrap="wrap">{thoughtBuffer}</Text>
+              </Box>
+            )}
+            {streamBuffer && (
+              <Box flexDirection="column">
+                <Text color={theme.muted} dimColor>{assistantMetaLine(w, Date.now(), modelLabel)}</Text>
+                <Box flexDirection="row" alignItems="flex-start">
+                  <Text color={theme.primary}>● </Text>
+                  <Box flexDirection="column" flexShrink={1}>
+                    {renderContent(streamBuffer, theme)}
+                  </Box>
                 </Box>
               </Box>
-            </>
-          )}
-          {!streamBuffer && isWriting && !thoughtBuffer && (
-            <Text color={theme.muted}>✻ Thinking…</Text>
-          )}
-        </Box>
-      )}
+            )}
+          </Box>
+        )}
 
-      {verbose && (
-        <Box marginTop={1} marginBottom={0} paddingLeft={2}>
-          <Text color={theme.muted} dimColor>
-            Detailed transcript · Ctrl+O to toggle reasoning · Ctrl+B verbose
-          </Text>
-        </Box>
-      )}
+        {showThinking && isThinking && !isWriting && !streamBuffer && !thoughtBuffer && (
+          <Box marginBottom={1}>
+            <Text color={theme.muted}>✻ Thinking…</Text>
+          </Box>
+        )}
+      </Box>
     </Box>
   );
 }
