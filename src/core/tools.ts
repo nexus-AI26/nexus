@@ -26,7 +26,7 @@ export const tools: Record<string, ToolDef> = {
         const filePath = String(args.path ?? '');
         const resolved = path.resolve(process.cwd(), filePath);
         if (!fs.existsSync(resolved)) {
-          return { output: '', error: `File not found: ${resolved}`, success: false };
+          return { output: '', error: `File not found: ${resolved}. If the parent folder is missing, you may need to creating it first.`, success: false };
         }
         const content = fs.readFileSync(resolved, 'utf8');
         return { output: content, success: true };
@@ -50,6 +50,24 @@ export const tools: Record<string, ToolDef> = {
         }
         fs.writeFileSync(resolved, content, 'utf8');
         return { output: `Written ${content.length} bytes to ${resolved}`, success: true };
+      } catch (e: unknown) {
+        return { output: '', error: String(e), success: false };
+      }
+    },
+  },
+
+  create_directory: {
+    name: 'create_directory',
+    description: 'Create a new directory (and any parent directories if needed)',
+    async execute(args) {
+      try {
+        const dirPath = String(args.path ?? '');
+        const resolved = path.resolve(process.cwd(), dirPath);
+        if (fs.existsSync(resolved)) {
+          return { output: `Directory already exists: ${resolved}`, success: true };
+        }
+        fs.mkdirSync(resolved, { recursive: true });
+        return { output: `Created directory: ${resolved}`, success: true };
       } catch (e: unknown) {
         return { output: '', error: String(e), success: false };
       }
@@ -82,6 +100,9 @@ export const tools: Record<string, ToolDef> = {
       try {
         const dirPath = String(args.path ?? process.cwd());
         const resolved = path.resolve(process.cwd(), dirPath);
+        if (!fs.existsSync(resolved)) {
+          return { output: '', error: `Directory not found: ${resolved}. You can create it using the 'create_directory' tool if needed.`, success: false };
+        }
         const entries = fs.readdirSync(resolved, { withFileTypes: true });
         const lines = entries.map(e => {
           const type = e.isDirectory() ? 'd' : 'f';
