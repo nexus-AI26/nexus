@@ -5,6 +5,7 @@ export function useTerminalWidth(): number {
   useEffect(() => {
     const onResize = () => setCols(clampCols(process.stdout.columns));
     onResize();
+    if (!process.stdout.isTTY) return;
     process.stdout.on('resize', onResize);
     return () => {
       process.stdout.off('resize', onResize);
