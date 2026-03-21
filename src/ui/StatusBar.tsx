@@ -9,9 +9,10 @@ interface StatusBarProps {
   theme: Theme;
   messageCount: number;
   cwd: string;
+  showThinking: boolean;
 }
 
-export function StatusBar({ provider, model, themeName, theme, messageCount, cwd }: StatusBarProps) {
+export function StatusBar({ provider, model, themeName, theme, messageCount, cwd, showThinking }: StatusBarProps) {
   const shortModel = model.length > 20 ? model.slice(0, 18) + '…' : model;
   const shortCwd = cwd.length > 25 ? '…' + cwd.slice(-22) : cwd;
   const providerColor: Record<string, string> = {
@@ -43,6 +44,8 @@ export function StatusBar({ provider, model, themeName, theme, messageCount, cwd
         <Text color={theme.accent}>{themeName}</Text>
         <Text color={theme.border}>│</Text>
         <Text color={theme.muted} dimColor>/ commands</Text>
+        <Text color={theme.border}>│</Text>
+        <Text color={theme.muted} dimColor>Ctrl+O {showThinking ? 'hide' : 'show'} thinking</Text>
       </Box>
     </Box>
   );
