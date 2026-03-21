@@ -20,7 +20,7 @@ export interface Theme {
 export const themes: Record<string, Theme> = {
   dracula: {
     name: 'dracula',
-    label: '🧛 Dracula',
+    label: 'Dracula',
     primary: '#bd93f9',
     secondary: '#8be9fd',
     accent: '#ff79c6',
@@ -39,7 +39,7 @@ export const themes: Record<string, Theme> = {
 
   tokyonight: {
     name: 'tokyonight',
-    label: '🌃 Tokyo Night',
+    label: 'Tokyo Night',
     primary: '#7aa2f7',
     secondary: '#bb9af7',
     accent: '#73daca',
@@ -58,7 +58,7 @@ export const themes: Record<string, Theme> = {
 
   monokai: {
     name: 'monokai',
-    label: '🎨 Monokai',
+    label: 'Monokai',
     primary: '#66d9e8',
     secondary: '#a6e22e',
     accent: '#f92672',
@@ -77,7 +77,7 @@ export const themes: Record<string, Theme> = {
 
   catppuccin: {
     name: 'catppuccin',
-    label: '🌸 Catppuccin',
+    label: 'Catppuccin',
     primary: '#cba6f7',
     secondary: '#89dceb',
     accent: '#f38ba8',
@@ -96,7 +96,7 @@ export const themes: Record<string, Theme> = {
 
   nord: {
     name: 'nord',
-    label: '❄️  Nord',
+    label: 'Nord',
     primary: '#88c0d0',
     secondary: '#81a1c1',
     accent: '#b48ead',
@@ -115,7 +115,7 @@ export const themes: Record<string, Theme> = {
 
   light: {
     name: 'light',
-    label: '☀️  Light',
+    label: 'Light',
     primary: '#5c6bc0',
     secondary: '#0097a7',
     accent: '#e91e63',
@@ -130,6 +130,63 @@ export const themes: Record<string, Theme> = {
     toolMsg: '#f57c00',
     cmdPaletteBg: '#f5f5f5',
     statusBg: '#e0e0e0',
+  },
+
+  gruvbox: {
+    name: 'gruvbox',
+    label: 'Gruvbox',
+    primary: '#fabd2f',
+    secondary: '#83a598',
+    accent: '#fe8019',
+    success: '#b8bb26',
+    error: '#fb4934',
+    warning: '#d79921',
+    muted: '#928374',
+    border: '#504945',
+    bg: '#282828',
+    userMsg: '#ebdbb2',
+    assistantMsg: '#fabd2f',
+    toolMsg: '#d79921',
+    cmdPaletteBg: '#3c3836',
+    statusBg: '#3c3836',
+  },
+
+  solarizeddark: {
+    name: 'solarizeddark',
+    label: 'Solarized Dark',
+    primary: '#268bd2',
+    secondary: '#2aa198',
+    accent: '#b58900',
+    success: '#859900',
+    error: '#dc322f',
+    warning: '#cb4b16',
+    muted: '#586e75',
+    border: '#073642',
+    bg: '#002b36',
+    userMsg: '#93a1a1',
+    assistantMsg: '#268bd2',
+    toolMsg: '#cb4b16',
+    cmdPaletteBg: '#073642',
+    statusBg: '#073642',
+  },
+
+  githubdark: {
+    name: 'githubdark',
+    label: 'GitHub Dark',
+    primary: '#58a6ff',
+    secondary: '#79c0ff',
+    accent: '#a371f7',
+    success: '#3fb950',
+    error: '#f85149',
+    warning: '#d29922',
+    muted: '#8b949e',
+    border: '#30363d',
+    bg: '#0d1117',
+    userMsg: '#c9d1d9',
+    assistantMsg: '#58a6ff',
+    toolMsg: '#d29922',
+    cmdPaletteBg: '#161b22',
+    statusBg: '#161b22',
   },
 };
 
