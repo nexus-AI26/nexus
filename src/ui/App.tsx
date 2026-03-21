@@ -385,22 +385,6 @@ export function App() {
 
   return (
     <Box flexDirection="column" minHeight="100%">
-      {!showWelcomeBanner && (
-        <Box paddingX={1} marginBottom={1} borderStyle="single" borderColor={theme.border} borderBottom={true} borderTop={false} borderLeft={false} borderRight={false}>
-          <Logo theme={theme} compact />
-        </Box>
-      )}
-
-      {showWelcomeBanner && (
-        <WelcomeCard
-          theme={theme}
-          version="1.0.0"
-          provider={agent.provider}
-          model={agent.model}
-          cwd={process.cwd()}
-        />
-      )}
-
       <Box flexDirection="column" flexGrow={1}>
       <MessageList
         messages={displayMsgs}
@@ -413,6 +397,12 @@ export function App() {
         showThinking={showThinking}
         verbose={verboseMode}
         model={agent.model}
+        welcomeData={{
+          version: '1.0.0',
+          provider: agent.provider,
+          model: agent.model,
+          cwd: process.cwd(),
+        }}
       />
       </Box>
 
