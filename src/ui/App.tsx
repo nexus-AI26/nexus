@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Box, Text, Static, useInput, useApp } from 'ink';
+import { Box, Text, useInput, useApp } from 'ink';
 import { getConfig, setConfig, isFirstRun, hasApiKey, setApiKey as setKey, PROVIDER_MODELS } from '../core/config.js';
 import { getTheme, type Theme } from '../themes/index.js';
 import { agent, type AgentEvent } from '../core/agent.js';
@@ -11,9 +11,6 @@ import { CommandPalette } from './CommandPalette.js';
 import { StatusBar } from './StatusBar.js';
 import { SetupWizard } from './SetupWizard.js';
 import type { Message } from '../core/providers.js';
-
-/** Single slot so the welcome panel is pinned once at the top of the scrollback (Ink Static). */
-const WELCOME_STATIC_SLOT = [0];
 
 interface SystemMessage {
   role: 'system_output';
@@ -369,17 +366,13 @@ export function App() {
 
   return (
     <Box flexDirection="column">
-      <Static items={WELCOME_STATIC_SLOT}>
-        {() => (
-          <WelcomeCard
-            theme={theme}
-            version="1.0.0"
-            provider={agent.provider}
-            model={agent.model}
-            cwd={process.cwd()}
-          />
-        )}
-      </Static>
+      <WelcomeCard
+        theme={theme}
+        version="1.0.0"
+        provider={agent.provider}
+        model={agent.model}
+        cwd={process.cwd()}
+      />
 
       <MessageList
         messages={displayMsgs}
