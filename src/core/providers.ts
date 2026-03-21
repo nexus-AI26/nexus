@@ -304,26 +304,24 @@ async function parseSSEStream(stream: NodeJS.ReadableStream, onChunk: StreamCall
 }
 
 async function parseAnthropicStream(stream: NodeJS.ReadableStream, onChunk: StreamCallback): Promise<void> {
+  const { createParser } = await import('eventsource-parser');
+
   return new Promise((resolve, reject) => {
-    let buffer = '';
-    stream.on('data', (chunk: Buffer) => { buffer += chunk.toString(); });
-    stream.on('end', () => {
-      const lines = buffer.split('\n');
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          try {
-            const data = JSON.parse(line.slice(6));
-            if (data.type === 'content_block_delta' && data.delta?.text) {
-              onChunk({ type: 'text', content: data.delta.text });
-            }
-            if (data.type === 'message_stop') {
-              onChunk({ type: 'done' });
-            }
-          } catch {}
+    const parser = createParser((event) => {
+      if (event.type !== 'event') return;
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'content_block_delta' && data.delta?.text) {
+          onChunk({ type: 'text', content: data.delta.text });
         }
-      }
-      resolve();
+        if (data.type === 'message_stop') {
+          onChunk({ type: 'done' });
+        }
+      } catch {}
     });
+
+    stream.on('data', (chunk: Buffer) => parser.feed(chunk.toString()));
+    stream.on('end', () => resolve());
     stream.on('error', reject);
   });
 }
