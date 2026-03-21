@@ -30,6 +30,7 @@ export function App() {
   const [isThinking, setIsThinking] = useState(false);
   const [isWriting, setIsWriting] = useState(false);
   const [showThinking, setShowThinking] = useState(true);
+  const [thinkingLabel, setThinkingLabel] = useState('analyzing your request...');
   const [streamBuffer, setStreamBuffer] = useState('');
   const [toolEvents, setToolEvents] = useState<ToolEvent[]>([]);
   const [toolAsk, setToolAsk] = useState<{ id: string; name: string; args: Record<string, unknown> } | null>(null);
@@ -70,9 +71,27 @@ export function App() {
     setPaletteIndex(0);
     setIsThinking(false);
     setIsWriting(false);
+    setThinkingLabel('analyzing your request...');
     isRunning.current = false;
     process.stdout.write('\x1Bc');
   }, []);
+
+  useEffect(() => {
+    if (!isThinking || isWriting) return;
+    const stages = [
+      'analyzing your request...',
+      'planning the next steps...',
+      'checking available tools...',
+      'preparing a response...',
+    ];
+    let idx = 0;
+    setThinkingLabel(stages[idx]!);
+    const timer = setInterval(() => {
+      idx = (idx + 1) % stages.length;
+      setThinkingLabel(stages[idx]!);
+    }, 1100);
+    return () => clearInterval(timer);
+  }, [isThinking, isWriting]);
 
   useEffect(() => {
     refreshMessages();
@@ -82,6 +101,7 @@ export function App() {
         case 'thinking':
           setIsThinking(true);
           setIsWriting(false);
+          setThinkingLabel('analyzing your request...');
           setStreamBuffer('');
           setToolEvents([]);
           break;
@@ -90,6 +110,7 @@ export function App() {
           setStreamBuffer(prev => prev + (event.content ?? ''));
           break;
         case 'tool_start':
+          setThinkingLabel(`running tool: ${event.name}...`);
           setToolEvents(prev => [...prev, { type: 'start', name: event.name, args: event.args }]);
           break;
         case 'tool_done':
@@ -97,12 +118,14 @@ export function App() {
           break;
         case 'tool_ask':
           setIsThinking(false);
+          setThinkingLabel('waiting for your approval...');
           setToolAsk({ id: event.id, name: event.name, args: event.args });
           setToolAskExpanded(false);
           break;
         case 'error':
           setIsThinking(false);
           setIsWriting(false);
+          setThinkingLabel('analyzing your request...');
           setStreamBuffer('');
           setMessages(prev => [...prev, {
             role: 'system_output' as const,
@@ -114,6 +137,7 @@ export function App() {
         case 'done':
           setIsThinking(false);
           setIsWriting(false);
+          setThinkingLabel('analyzing your request...');
           setStreamBuffer('');
           setToolEvents([]);
           refreshMessages();
@@ -338,6 +362,7 @@ export function App() {
         isThinking={isThinking}
         isWriting={isWriting}
         showThinking={showThinking}
+        thinkingLabel={thinkingLabel}
         verbose={verboseMode}
       />
 
@@ -379,6 +404,7 @@ export function App() {
         isThinking={isThinking}
         isWriting={isWriting}
         showThinking={showThinking}
+        thinkingLabel={thinkingLabel}
         theme={theme}
         hasKey={hasApiKey()}
       />
