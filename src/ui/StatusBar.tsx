@@ -45,7 +45,7 @@ export function StatusBar({ provider, model, themeName, theme, messageCount, cwd
         <Text color={theme.border}>│</Text>
         <Text color={theme.muted} dimColor>/ commands</Text>
         <Text color={theme.border}>│</Text>
-        <Text color={theme.muted} dimColor>Ctrl+O {showThinking ? 'hide' : 'show'} thinking</Text>
+        <Text color={theme.muted} dimColor>Ctrl+O {showThinking ? 'hide' : 'show'} work</Text>
       </Box>
     </Box>
   );
