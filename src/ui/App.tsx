@@ -104,6 +104,7 @@ export function App() {
           setThinkingLabel('analyzing your request...');
           setStreamBuffer('');
           setToolEvents([]);
+          refreshMessages();
           break;
         case 'text':
           setIsWriting(prev => prev || true);
