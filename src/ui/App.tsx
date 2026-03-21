@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Box, Text, useInput, useApp, measureElement } from 'ink';
+import { Box, Text, useInput, useApp } from 'ink';
 import { getConfig, setConfig, isFirstRun, hasApiKey, setApiKey as setKey, PROVIDER_MODELS } from '../core/config.js';
 import { getTheme, type Theme } from '../themes/index.js';
 import { agent, type AgentEvent } from '../core/agent.js';
@@ -54,9 +54,6 @@ export function App() {
     };
   }, []);
 
-  useEffect(() => {
-    process.stdout.write('\x1b[?25l');
-  });
 
   const refreshMessages = useCallback(() => {
     setMessages([...agent.messages]);
@@ -381,15 +378,14 @@ export function App() {
 
   return (
     <Box flexDirection="column" height="100%">
-      <NexusSymbol theme={theme} />
-
-      {displayMsgs.length === 0 && (
+      {!showPalette && (
         <WelcomeCard 
           theme={theme} 
           version="1.0.0" 
           provider={agent.provider} 
           model={agent.model} 
           cwd={process.cwd()} 
+          compact={displayMsgs.length > 0}
         />
       )}
 
