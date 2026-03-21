@@ -112,6 +112,55 @@ export const tools: Record<string, ToolDef> = {
       }
     },
   },
+
+  web_search: {
+    name: 'web_search',
+    description: 'Search the web for recent information',
+    async execute(args) {
+      try {
+        const query = String(args.query ?? '').trim();
+        const limitRaw = Number(args.limit ?? 5);
+        const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(10, Math.floor(limitRaw))) : 5;
+        if (!query) {
+          return { output: '', error: 'Missing required argument: query', success: false };
+        }
+
+        const { default: fetch } = await import('node-fetch');
+        const url = `https://duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+        const res = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 nexus-web-search',
+          },
+        });
+
+        if (!res.ok) {
+          return { output: '', error: `Web search request failed: ${res.status}`, success: false };
+        }
+
+        const html = await res.text();
+        const resultRegex = /<a[^>]+class="result__a"[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g;
+        const out: string[] = [];
+        let match: RegExpExecArray | null;
+
+        while ((match = resultRegex.exec(html)) !== null && out.length < limit) {
+          const rawHref = match[1] ?? '';
+          const rawTitle = match[2] ?? '';
+          const title = rawTitle.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').trim();
+          const decodedHref = decodeDuckDuckGoRedirect(rawHref);
+          if (!title || !decodedHref) continue;
+          out.push(`${out.length + 1}. ${title}\n   ${decodedHref}`);
+        }
+
+        if (out.length === 0) {
+          return { output: `No web results found for "${query}".`, success: true };
+        }
+
+        return { output: `Web results for "${query}":\n${out.join('\n')}`, success: true };
+      } catch (e: unknown) {
+        return { output: '', error: String(e), success: false };
+      }
+    },
+  },
 };
 
 export async function executeTool(name: string, args: Record<string, unknown>): Promise<ToolResult> {
@@ -120,4 +169,17 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
     return { output: '', error: `Unknown tool: ${name}`, success: false };
   }
   return tool.execute(args);
+}
+
+function decodeDuckDuckGoRedirect(href: string): string {
+  if (!href) return '';
+  if (!href.startsWith('//duckduckgo.com/l/?')) return href;
+  try {
+    const normalized = href.startsWith('//') ? `https:${href}` : href;
+    const u = new URL(normalized);
+    const uddg = u.searchParams.get('uddg');
+    return uddg ? decodeURIComponent(uddg) : href;
+  } catch {
+    return href;
+  }
 }
