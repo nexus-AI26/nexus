@@ -20,6 +20,13 @@ interface SystemMessage {
 
 type DisplayMessage = Message | SystemMessage;
 
+function clearTerminalScreen(): void {
+  process.stdout.write('\x1B[2J\x1B[H');
+  if (process.stdout.isTTY) {
+    process.stdout.write('\x1B[3J');
+  }
+}
+
 export function App() {
   const { exit } = useApp();
   const cfg = getConfig();
@@ -41,7 +48,20 @@ export function App() {
   const [verboseMode, setVerboseMode] = useState(false);
   const [setupMode, setSetupMode] = useState(isFirstRun());
   const [pendingSubmission, setPendingSubmission] = useState<string | null>(null);
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState(true);
   const isRunning = useRef(false);
+
+  useEffect(() => {
+    if (!setupMode) {
+      clearTerminalScreen();
+    }
+  }, [setupMode]);
+
+  useEffect(() => {
+    if (messages.length > 0) {
+      setShowWelcomeBanner(false);
+    }
+  }, [messages.length]);
 
   useEffect(() => {
     process.stdout.write('\x1b[?25l');
@@ -69,7 +89,7 @@ export function App() {
     setIsWriting(false);
     setThinkingLabel('analyzing your request...');
     isRunning.current = false;
-    process.stdout.write('\x1Bc');
+    clearTerminalScreen();
   }, []);
 
   useEffect(() => {
@@ -365,15 +385,18 @@ export function App() {
   });
 
   return (
-    <Box flexDirection="column">
-      <WelcomeCard
-        theme={theme}
-        version="1.0.0"
-        provider={agent.provider}
-        model={agent.model}
-        cwd={process.cwd()}
-      />
+    <Box flexDirection="column" width="100%">
+      {showWelcomeBanner && (
+        <WelcomeCard
+          theme={theme}
+          version="1.0.0"
+          provider={agent.provider}
+          model={agent.model}
+          cwd={process.cwd()}
+        />
+      )}
 
+      <Box flexDirection="column" flexGrow={1}>
       <MessageList
         messages={displayMsgs}
         theme={theme}
@@ -386,6 +409,7 @@ export function App() {
         verbose={verboseMode}
         model={agent.model}
       />
+      </Box>
 
       {showPalette && (
         <CommandPalette
