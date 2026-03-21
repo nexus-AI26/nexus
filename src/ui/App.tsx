@@ -110,12 +110,26 @@ export function App() {
           setIsWriting(prev => prev || true);
           setStreamBuffer(prev => prev + (event.content ?? ''));
           break;
+        case 'tool_update':
+          setToolEvents(prev => {
+            const existing = prev.find(e => e.type === 'update' && (e as any).id === event.id);
+            if (existing) {
+              return prev.map(e => (e as any).id === event.id ? { ...e, partialArgs: (e.partialArgs ?? '') + event.argsDelta, name: event.name || e.name } : e);
+            }
+            return [...prev, { type: 'update' as const, id: event.id, name: event.name || 'unknown', partialArgs: event.argsDelta }];
+          });
+          break;
         case 'tool_start':
           setThinkingLabel(`running tool: ${event.name}...`);
-          setToolEvents(prev => [...prev, { type: 'start', name: event.name, args: event.args }]);
+          setToolEvents(prev => {
+             // Remove any 'update' event for this tool ID and add the real 'start' event
+             const filtered = prev.filter(e => (e as any).id !== (event as any).id);
+             return [...filtered, { type: 'start' as const, name: event.name, args: event.args }];
+          });
           break;
         case 'tool_done':
           setToolEvents(prev => prev.filter(e => !(e.type === 'start' && e.name === event.name)));
+          refreshMessages();
           break;
         case 'tool_ask':
           setIsThinking(false);
