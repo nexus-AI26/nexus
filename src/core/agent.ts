@@ -211,7 +211,10 @@ export class Agent {
           this.emit({ type: 'done' });
           return;
         }
-        const msg = err instanceof Error ? err.message : String(err);
+        let msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes('429')) {
+          msg += '\n\n✦ Tip: You are being rate-limited. Try switching to a different model with /model <name> or wait a moment.';
+        }
         this.emit({ type: 'error', message: msg });
         this.emit({ type: 'done' });
         keepGoing = false;
