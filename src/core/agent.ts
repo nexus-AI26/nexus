@@ -124,8 +124,6 @@ export class Agent {
         let accThought = firstPass.thought;
         pendingReqTools = firstPass.tools;
 
-        // Some models occasionally return an empty streamed response on first attempt.
-        // Retry once with a direct nudge before falling back, UNLESS we hit a hard API error.
         if (!accText && pendingReqTools.length === 0 && !firstPass.error && this.abortController) {
           const retryMessages: Message[] = [
             ...this.session.messages,
@@ -140,19 +138,17 @@ export class Agent {
         if (accText || accThought) {
           this.session.messages.push({ role: 'assistant', content: accText, thought: accThought, timestamp: Date.now() });
         } else if (pendingReqTools.length === 0) {
-          // Some providers/models may fail to produce a final response after tools.
-          // Fallback to the latest tool output so the user still gets a useful answer.
           const lastToolMsg = [...this.session.messages].reverse().find(m => m.role === 'tool');
           if (lastToolMsg?.content?.trim()) {
             this.session.messages.push({
               role: 'assistant',
-              content: `Here is what I found:\n\n${lastToolMsg.content}`,
+              content: `Here is the result of the previous action:\n\n${lastToolMsg.content.slice(0, 1000)}`,
               timestamp: Date.now(),
             });
           } else {
             this.session.messages.push({
               role: 'assistant',
-              content: 'I did not receive a response from the model. Please try again, switch model/provider, or rephrase your request.',
+              content: 'I did not receive a response from the model. This can happen with some free-tier models on OpenRouter. Please try rephrasing or switching providers.',
               timestamp: Date.now(),
             });
           }
@@ -179,9 +175,16 @@ export class Agent {
               this.emit({ type: 'tool_start', name: tc.name, args: tc.args });
               const result = await executeTool(tc.name, tc.args);
               this.emit({ type: 'tool_done', name: tc.name, output: result.output, success: result.success });
+              
+              let toolContent = result.output;
+              if (!result.success) {
+                const errorMsg = result.error || 'Unknown tool error';
+                toolContent = errorMsg.startsWith('Error:') ? errorMsg : `Error: ${errorMsg}`;
+              }
+              
               this.session.messages.push({
                 role: 'tool',
-                content: result.success ? result.output : `Error: ${result.error}`,
+                content: toolContent,
                 toolName: tc.name,
                 toolCallId: tc.id
               });
