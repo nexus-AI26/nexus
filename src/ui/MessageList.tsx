@@ -16,9 +16,10 @@ interface MessageListProps {
 }
 
 export interface ToolEvent {
-  type: 'start' | 'done';
+  type: 'start' | 'done' | 'update';
   name: string;
   args?: Record<string, unknown>;
+  partialArgs?: string;
   output?: string;
   success?: boolean;
 }
@@ -119,12 +120,20 @@ function MessageBubble({ message, theme, verbose }: { message: Message; theme: T
 }
 
 function ToolEventRow({ event, theme, verbose, showWork }: { event: ToolEvent; theme: Theme; verbose: boolean; showWork: boolean }) {
-  if (event.type === 'start') {
+  if (event.type === 'start' || event.type === 'update') {
     const isCodeWriteTool = ['write_file', 'edit_file', 'apply_patch'].includes(event.name);
     const pathValue = event.args && typeof event.args.path === 'string' ? event.args.path : null;
-    const contentValue = event.args && typeof event.args.content === 'string' ? event.args.content : null;
+    let contentValue = event.args && typeof event.args.content === 'string' ? event.args.content : null;
     const actionLabel = isCodeWriteTool ? 'Writing code' : 'Running';
     
+    // If it's a stream update, try to extract partial content if it's a code tool
+    if (event.type === 'update' && isCodeWriteTool && event.partialArgs && !contentValue) {
+      const contentMatch = event.partialArgs.match(/"content"\s*:\s*"([\s\S]*?)(?:"|$)/);
+      if (contentMatch && contentMatch[1]) {
+        contentValue = contentMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+      }
+    }
+
     return (
       <Box flexDirection="column" marginLeft={2}>
         <Box>
@@ -132,16 +141,16 @@ function ToolEventRow({ event, theme, verbose, showWork }: { event: ToolEvent; t
           <Text color={theme.secondary} bold>{event.name}</Text>
           <Text color={theme.warning}> …</Text>
         </Box>
-        {isCodeWriteTool && pathValue && (
-          <Text color={theme.muted}>Path: {pathValue}</Text>
+        {(pathValue || (event.type === 'update' && event.partialArgs?.includes('"path"'))) && (
+          <Text color={theme.muted}>Path: {pathValue ?? (event.partialArgs?.match(/"path"\s*:\s*"([^"]*)"/)?.[1] ?? '...')}</Text>
         )}
         
-        {(verbose || (showWork && isCodeWriteTool && contentValue)) && event.args && Object.keys(event.args).length > 0 && (
+        {(verbose || (showWork && isCodeWriteTool && contentValue)) && (
           <Box borderStyle="single" borderColor={theme.muted} paddingX={1} marginY={0} flexDirection="column">
              {isCodeWriteTool && contentValue ? (
                <CodeBlock code={contentValue} theme={theme} />
              ) : (
-               <Text color={theme.muted}>{JSON.stringify(event.args, null, 2)}</Text>
+               <Text color={theme.muted}>{event.args ? JSON.stringify(event.args, null, 2) : (event.partialArgs ?? '')}</Text>
              )}
           </Box>
         )}
