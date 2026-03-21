@@ -148,7 +148,7 @@ export class Agent {
           for (const tc of pendingReqTools) {
             if (!this.abortController) break;
 
-            const isSafe = ['read_file', 'list_directory', 'search_files', 'web_search'].includes(tc.name);
+            const isSafe = ['read_file', 'list_directory', 'search_files'].includes(tc.name);
             let approved = true;
 
             if (!isSafe) {
