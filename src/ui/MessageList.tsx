@@ -55,12 +55,22 @@ function renderContent(content: string, theme: Theme) {
       const text = content.slice(lastIndex, match.index);
       parts.push(<Text key={`t-${lastIndex}`} wrap="wrap">{renderInline(text, theme)}</Text>);
     }
-    parts.push(<CodeBlock key={`c-${match.index}`} code={match[1]?.trim() ?? ''} theme={theme} />);
+    parts.push(<CodeBlock key={`c-${match.index}`} code={match[1] ?? ''} theme={theme} />);
     lastIndex = match.index + match[0].length;
   }
 
-  if (lastIndex < content.length) {
-    parts.push(<Text key={`t-end`} wrap="wrap">{renderInline(content.slice(lastIndex), theme)}</Text>);
+  const remaining = content.slice(lastIndex);
+  const openMatch = remaining.match(/^(?:[\s\S]*?)\n?```(?:\w+)?\n?([\s\S]*)$/);
+  
+  if (openMatch) {
+    // If there's content before the open block in 'remaining', we should render it
+    const beforeOpen = remaining.split(/```/)[0];
+    if (beforeOpen) {
+       parts.push(<Text key="t-before-open" wrap="wrap">{renderInline(beforeOpen, theme)}</Text>);
+    }
+    parts.push(<CodeBlock key="c-open" code={openMatch[1] ?? ''} theme={theme} />);
+  } else if (remaining) {
+    parts.push(<Text key="t-end" wrap="wrap">{renderInline(remaining, theme)}</Text>);
   }
 
   return parts.length > 0 ? parts : [<Text key="empty" wrap="wrap">{renderInline(content, theme)}</Text>];
