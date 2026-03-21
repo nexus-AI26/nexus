@@ -8,14 +8,15 @@ interface InputBarProps {
   isThinking: boolean;
   isWriting: boolean;
   showThinking: boolean;
+  thinkingLabel: string;
   theme: Theme;
   hasKey: boolean;
 }
 
-export function InputBar({ value, isThinking, isWriting, showThinking, theme, hasKey }: InputBarProps) {
+export function InputBar({ value, isThinking, isWriting, showThinking, thinkingLabel, theme, hasKey }: InputBarProps) {
   const lines = value.split('\n');
   const displayValue = lines[lines.length - 1] ?? '';
-  const activityLabel = isWriting ? 'writing...' : 'thinking...';
+  const activityLabel = isWriting ? 'writing...' : thinkingLabel;
 
   return (
     <Box
