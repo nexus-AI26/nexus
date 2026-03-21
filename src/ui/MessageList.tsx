@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, Box } from 'ink';
+import { Text, Box, Static } from 'ink';
 import { agent } from '../core/agent.js';
 import type { Theme } from '../themes/index.js';
 import type { Message } from '../core/providers.js';
@@ -63,7 +63,6 @@ function renderContent(content: string, theme: Theme) {
   const openMatch = remaining.match(/^(?:[\s\S]*?)\n?```(?:\w+)?\n?([\s\S]*)$/);
   
   if (openMatch) {
-    // If there's content before the open block in 'remaining', we should render it
     const beforeOpen = remaining.split(/```/)[0];
     if (beforeOpen) {
        parts.push(<Text key="t-before-open" wrap="wrap">{renderInline(beforeOpen, theme)}</Text>);
@@ -145,7 +144,6 @@ function ToolEventRow({ event, theme, verbose, showWork }: { event: ToolEvent; t
     let contentValue = event.args && typeof event.args.content === 'string' ? event.args.content : null;
     const actionLabel = isCodeWriteTool ? 'Writing code' : 'Running';
     
-    // If it's a stream update, try to extract partial content if it's a code tool
     if (event.type === 'update' && isCodeWriteTool && event.partialArgs && !contentValue) {
       const contentMatch = event.partialArgs.match(/"content"\s*:\s*"([\s\S]*?)(?:"|$)/);
       if (contentMatch && contentMatch[1]) {
@@ -192,13 +190,15 @@ export function MessageList({
   verbose,
   lastResponseTime
 }: MessageListProps) {
-  const displayMessages = messages.filter(m => m.role !== 'system');
+  const staticMessages = messages.filter(m => m.role !== 'system');
 
   return (
     <Box flexDirection="column" flexGrow={1} paddingX={1}>
-      {displayMessages.map((msg, i) => (
-        <MessageBubble key={i} message={msg} theme={theme} verbose={verbose} />
-      ))}
+      <Static items={staticMessages}>
+        {(msg, i) => (
+          <MessageBubble key={i} message={msg} theme={theme} verbose={verbose} />
+        )}
+      </Static>
 
       {toolEvents.map((ev, i) => (
         <ToolEventRow key={i} event={ev} theme={theme} verbose={verbose} showWork={showThinking} />
@@ -232,7 +232,7 @@ export function MessageList({
         </Box>
       )}
 
-      {lastResponseTime !== null && displayMessages.length > 0 && displayMessages[displayMessages.length - 1]?.role === 'assistant' && !isThinking && !isWriting && (
+      {lastResponseTime !== null && staticMessages.length > 0 && staticMessages[staticMessages.length - 1]?.role === 'assistant' && !isThinking && !isWriting && (
         <Box marginLeft={2} marginBottom={1}>
            <Text color={theme.muted}>▣ Build · </Text>
            <Text color={theme.muted} dimColor>{agent.model} · {(lastResponseTime / 1000).toFixed(1)}s</Text>
