@@ -378,16 +378,14 @@ export function App() {
 
   return (
     <Box flexDirection="column" height="100%">
-      {!showPalette && (
-        <WelcomeCard 
-          theme={theme} 
-          version="1.0.0" 
-          provider={agent.provider} 
-          model={agent.model} 
-          cwd={process.cwd()} 
-          compact={displayMsgs.length > 0}
-        />
-      )}
+      <WelcomeCard 
+        theme={theme} 
+        version="1.0.0" 
+        provider={agent.provider} 
+        model={agent.model} 
+        cwd={process.cwd()} 
+        compact={displayMsgs.length > 0}
+      />
 
       <MessageList
         messages={displayMsgs}
