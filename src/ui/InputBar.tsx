@@ -38,6 +38,7 @@ export function InputBar({ value, isThinking, isWriting, showThinking, theme, ha
             : <Text color={theme.error} bold>!</Text>
           }
           <Text color={theme.userMsg}>{displayValue}</Text>
+          <Text color={theme.muted} dimColor>▏</Text>
         </Box>
       )}
     </Box>
