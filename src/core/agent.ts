@@ -13,6 +13,7 @@ import {
 export type AgentEvent =
   | { type: 'text'; content: string }
   | { type: 'tool_ask'; id: string; name: string; args: Record<string, unknown> }
+  | { type: 'tool_update'; id: string; name?: string; argsDelta: string }
   | { type: 'tool_start'; name: string; args: Record<string, unknown> }
   | { type: 'tool_done'; name: string; output: string; success: boolean }
   | { type: 'error'; message: string }
@@ -85,6 +86,10 @@ export class Agent {
             hadError = true;
             this.emit({ type: 'error', message: chunk.error ?? 'Unknown error' });
           }
+          if (chunk.type === 'tool_call_delta') {
+            const id = chunk.toolCallId || 'current';
+            this.emit({ type: 'tool_update', id, name: chunk.toolName, argsDelta: chunk.toolArgsDelta ?? '' });
+          }
           if (chunk.type === 'tool_call' && chunk.toolName) {
             localTools.push({
               id: chunk.toolCallId || Date.now().toString() + Math.random().toString(),
@@ -150,7 +155,7 @@ export class Agent {
           for (const tc of pendingReqTools) {
             if (!this.abortController) break;
 
-            const isSafe = ['read_file', 'list_directory', 'search_files'].includes(tc.name);
+            const isSafe = ['read_file'].includes(tc.name);
             let approved = true;
 
             if (!isSafe) {
