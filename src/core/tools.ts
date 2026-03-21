@@ -135,7 +135,7 @@ export const tools: Record<string, ToolDef> = {
         const results: string[] = [];
 
         for (const filePath of files) {
-          // Skip very large files to keep tool responsive.
+                // Skip very large files to keep tool responsive.
           const stat = fs.statSync(filePath);
           if (stat.size > 1024 * 1024) continue;
 
