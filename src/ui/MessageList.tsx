@@ -1,8 +1,8 @@
 import React from 'react';
 import { Text, Box, Static } from 'ink';
-import { agent } from '../core/agent.js';
 import type { Theme } from '../themes/index.js';
 import type { Message } from '../core/providers.js';
+import { useTerminalWidth } from './useTerminalWidth.js';
 
 interface MessageListProps {
   messages: Message[];
@@ -13,9 +13,8 @@ interface MessageListProps {
   isThinking: boolean;
   isWriting: boolean;
   showThinking: boolean;
-  thinkingLabel: string;
   verbose: boolean;
-  lastResponseTime: number | null;
+  model: string;
 }
 
 export interface ToolEvent {
@@ -25,6 +24,28 @@ export interface ToolEvent {
   partialArgs?: string;
   output?: string;
   success?: boolean;
+}
+
+const TOOL_HEADING: Record<string, string> = {
+  write_file: 'Write',
+  read_file: 'Read',
+  run_command: 'Shell',
+  list_dir: 'List',
+  glob: 'Glob',
+};
+
+function toolHeading(name: string): string {
+  return TOOL_HEADING[name] ?? name;
+}
+
+function assistantMetaLine(width: number, ts: number, modelId: string): string {
+  const time = new Date(ts).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
+  let meta = `${time} ${modelId}`;
+  if ([...meta].length > width) {
+    meta = meta.slice(0, Math.max(0, width - 1)) + '…';
+  }
+  const pad = Math.max(0, width - [...meta].length);
+  return ' '.repeat(pad) + meta;
 }
 
 function CodeBlock({ code, theme }: { code: string; theme: Theme }) {
@@ -61,11 +82,11 @@ function renderContent(content: string, theme: Theme) {
 
   const remaining = content.slice(lastIndex);
   const openMatch = remaining.match(/^(?:[\s\S]*?)\n?```(?:\w+)?\n?([\s\S]*)$/);
-  
+
   if (openMatch) {
     const beforeOpen = remaining.split(/```/)[0];
     if (beforeOpen) {
-       parts.push(<Text key="t-before-open" wrap="wrap">{renderInline(beforeOpen, theme)}</Text>);
+      parts.push(<Text key="t-before-open" wrap="wrap">{renderInline(beforeOpen, theme)}</Text>);
     }
     parts.push(<CodeBlock key="c-open" code={openMatch[1] ?? ''} theme={theme} />);
   } else if (remaining) {
@@ -76,7 +97,6 @@ function renderContent(content: string, theme: Theme) {
 }
 
 function renderInline(text: string, theme: Theme): React.ReactNode {
-
   const boldRe = /\*\*(.+?)\*\*/g;
   const parts: React.ReactNode[] = [];
   let last = 0;
@@ -90,7 +110,19 @@ function renderInline(text: string, theme: Theme): React.ReactNode {
   return <>{parts}</>;
 }
 
-function MessageBubble({ message, theme, verbose }: { message: Message; theme: Theme; verbose: boolean }) {
+function MessageBubble({
+  message,
+  theme,
+  verbose,
+  terminalWidth,
+  modelLabel,
+}: {
+  message: Message;
+  theme: Theme;
+  verbose: boolean;
+  terminalWidth: number;
+  modelLabel: string;
+}) {
   const isUser = message.role === 'user';
   const isTool = message.role === 'tool';
   const isAssistant = message.role === 'assistant';
@@ -98,35 +130,37 @@ function MessageBubble({ message, theme, verbose }: { message: Message; theme: T
   const prefix = isUser
     ? <Text color={theme.accent} bold>❯ </Text>
     : isTool
-    ? <Text color={theme.warning} bold>⚙ </Text>
-    : <Text color={theme.primary} bold>✦ </Text>;
-
-  const color = isUser ? theme.userMsg : isTool ? theme.toolMsg : theme.assistantMsg;
+    ? null
+    : <Text color={theme.primary} bold>● </Text>;
 
   return (
     <Box flexDirection="column" marginBottom={1}>
-      <Box>
+      {isAssistant && (
+        <Text color={theme.muted} dimColor>
+          {assistantMetaLine(terminalWidth, message.timestamp ?? Date.now(), modelLabel)}
+        </Text>
+      )}
+      <Box flexDirection="row" alignItems="flex-start">
         {prefix}
         {isUser && <Text color={theme.accent} bold>{message.content}</Text>}
         {isTool && (
-          <Box flexDirection="column" marginLeft={2}>
-            <Text color={theme.warning} dimColor>Tool: {message.toolName}</Text>
-            {verbose ? (
-              <Box borderStyle="single" borderColor={theme.muted} paddingX={1} marginY={0}>
-                <Text color={theme.muted} wrap="wrap">{message.content}</Text>
+          <Box flexDirection="column" flexShrink={1}>
+            <Text color={theme.primary} bold>
+              ● {toolHeading(message.toolName || 'tool')}
+            </Text>
+            {(verbose ? message.content.split('\n') : [message.content.slice(0, 150) + (message.content.length > 150 ? '… (Ctrl+B to expand)' : '')]).map((line, i) => (
+              <Box key={i} flexDirection="row">
+                <Text color={theme.muted}>⎿ </Text>
+                <Text color={theme.muted} wrap="wrap">{line || ' '}</Text>
               </Box>
-            ) : (
-              <Text color={theme.muted} wrap="wrap">
-                {message.content.slice(0, 150)}{message.content.length > 150 ? '… (press Ctrl+B to expand)' : ''}
-              </Text>
-            )}
+            ))}
           </Box>
         )}
         {isAssistant && (
           <Box flexDirection="column" flexShrink={1}>
             {message.thought && (
-              <Box borderStyle="round" borderColor={theme.muted} paddingX={1} marginBottom={1} flexDirection="column">
-                <Text color={theme.muted} italic>Thinking: {message.thought}</Text>
+              <Box marginBottom={1} flexDirection="column">
+                <Text color={theme.muted} dimColor wrap="wrap">✻ {message.thought}</Text>
               </Box>
             )}
             {renderContent(message.content, theme)}
@@ -142,8 +176,8 @@ function ToolEventRow({ event, theme, verbose, showWork }: { event: ToolEvent; t
     const isCodeWriteTool = ['write_file', 'edit_file', 'apply_patch'].includes(event.name);
     const pathValue = event.args && typeof event.args.path === 'string' ? event.args.path : null;
     let contentValue = event.args && typeof event.args.content === 'string' ? event.args.content : null;
-    const actionLabel = isCodeWriteTool ? 'Writing code' : 'Running';
-    
+    const actionLabel = isCodeWriteTool ? 'Writing' : 'Running';
+
     if (event.type === 'update' && isCodeWriteTool && event.partialArgs && !contentValue) {
       const contentMatch = event.partialArgs.match(/"content"\s*:\s*"([\s\S]*?)(?:"|$)/);
       if (contentMatch && contentMatch[1]) {
@@ -154,21 +188,25 @@ function ToolEventRow({ event, theme, verbose, showWork }: { event: ToolEvent; t
     return (
       <Box flexDirection="column" marginLeft={2}>
         <Box>
-          <Text color={theme.warning}>⚙ {actionLabel} </Text>
-          <Text color={theme.secondary} bold>{event.name}</Text>
-          <Text color={theme.warning}> …</Text>
+          <Text color={theme.secondary} bold>✽ </Text>
+          <Text color={theme.secondary}>{actionLabel} </Text>
+          <Text color={theme.secondary} bold>{toolHeading(event.name)}</Text>
+          {pathValue && <Text color={theme.muted}> ({pathValue})</Text>}
+          <Text color={theme.muted}>…</Text>
         </Box>
-        {(pathValue || (event.type === 'update' && event.partialArgs?.includes('"path"'))) && (
-          <Text color={theme.muted}>Path: {pathValue ?? (event.partialArgs?.match(/"path"\s*:\s*"([^"]*)"/)?.[1] ?? '...')}</Text>
+        {!pathValue && event.type === 'update' && event.partialArgs?.includes('"path"') && (
+          <Text color={theme.muted}>
+            Path: {event.partialArgs?.match(/"path"\s*:\s*"([^"]*)"/)?.[1] ?? '…'}
+          </Text>
         )}
-        
+
         {(verbose || (showWork && isCodeWriteTool && contentValue)) && (
           <Box borderStyle="single" borderColor={theme.muted} paddingX={1} marginY={0} flexDirection="column">
-             {isCodeWriteTool && contentValue ? (
-               <CodeBlock code={contentValue} theme={theme} />
-             ) : (
-               <Text color={theme.muted}>{event.args ? JSON.stringify(event.args, null, 2) : (event.partialArgs ?? '')}</Text>
-             )}
+            {isCodeWriteTool && contentValue ? (
+              <CodeBlock code={contentValue} theme={theme} />
+            ) : (
+              <Text color={theme.muted}>{event.args ? JSON.stringify(event.args, null, 2) : (event.partialArgs ?? '')}</Text>
+            )}
           </Box>
         )}
       </Box>
@@ -186,17 +224,25 @@ export function MessageList({
   isThinking,
   isWriting,
   showThinking,
-  thinkingLabel,
   verbose,
-  lastResponseTime
+  model,
 }: MessageListProps) {
   const staticMessages = messages.filter(m => m.role !== 'system');
+  const w = useTerminalWidth();
+  const modelLabel = model;
 
   return (
-    <Box flexDirection="column" flexGrow={1} paddingX={1}>
+    <Box flexDirection="column" flexGrow={1} paddingX={0}>
       <Static items={staticMessages}>
         {(msg, i) => (
-          <MessageBubble key={i} message={msg} theme={theme} verbose={verbose} />
+          <MessageBubble
+            key={i}
+            message={msg}
+            theme={theme}
+            verbose={verbose}
+            terminalWidth={w}
+            modelLabel={modelLabel}
+          />
         )}
       </Static>
 
@@ -205,37 +251,41 @@ export function MessageList({
       ))}
 
       {showThinking && isThinking && !isWriting && !streamBuffer && !thoughtBuffer && (
-        <Box>
-          <Text color={theme.primary} bold>✦ </Text>
-          <Text color={theme.muted}>{thinkingLabel}</Text>
+        <Box marginBottom={1}>
+          <Text color={theme.muted}>✻ Thinking…</Text>
         </Box>
       )}
 
       {(thoughtBuffer || streamBuffer) && (
         <Box flexDirection="column" marginBottom={1}>
-          <Box>
-            <Text color={theme.primary} bold>✦ </Text>
-            <Box flexDirection="column" flexShrink={1}>
-              {thoughtBuffer && (
-                <Box borderStyle="round" borderColor={theme.muted} paddingX={1} marginBottom={1} flexDirection="column">
-                  <Text color={theme.muted} italic>Thinking: {thoughtBuffer}</Text>
-                </Box>
-              )}
-              {streamBuffer ? renderContent(streamBuffer, theme) : (isWriting && (
-                <Box>
-                   <Text color={theme.muted}>writing</Text>
-                   <Text color={theme.primary}>…</Text>
-                </Box>
-              ))}
+          {thoughtBuffer && showThinking && (
+            <Box flexDirection="row" marginBottom={streamBuffer ? 1 : 0} alignItems="flex-start">
+              <Text color={theme.muted}>✻ </Text>
+              <Text color={theme.muted} dimColor wrap="wrap">{thoughtBuffer}</Text>
             </Box>
-          </Box>
+          )}
+          {streamBuffer && (
+            <>
+              <Text color={theme.muted} dimColor>{assistantMetaLine(w, Date.now(), modelLabel)}</Text>
+              <Box flexDirection="row" alignItems="flex-start">
+                <Text color={theme.primary} bold>● </Text>
+                <Box flexDirection="column" flexShrink={1}>
+                  {renderContent(streamBuffer, theme)}
+                </Box>
+              </Box>
+            </>
+          )}
+          {!streamBuffer && isWriting && !thoughtBuffer && (
+            <Text color={theme.muted}>✻ Thinking…</Text>
+          )}
         </Box>
       )}
 
-      {lastResponseTime !== null && staticMessages.length > 0 && staticMessages[staticMessages.length - 1]?.role === 'assistant' && !isThinking && !isWriting && (
-        <Box marginLeft={2} marginBottom={1}>
-           <Text color={theme.muted}>▣ Build · </Text>
-           <Text color={theme.muted} dimColor>{agent.model} · {(lastResponseTime / 1000).toFixed(1)}s</Text>
+      {verbose && (
+        <Box marginTop={1} marginBottom={0} paddingLeft={2}>
+          <Text color={theme.muted} dimColor>
+            Detailed transcript · Ctrl+O to toggle reasoning · Ctrl+B verbose
+          </Text>
         </Box>
       )}
     </Box>
