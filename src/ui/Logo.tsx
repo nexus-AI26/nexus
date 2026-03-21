@@ -103,42 +103,53 @@ export function WelcomeCard({ theme, version, provider, model, cwd }: WelcomeCar
   const shortModel = trunc(model, 48);
   const ruleLen = Math.min(textW, 72);
 
+  const leftW = Math.floor(inner / 2);
+  const rightW = inner - leftW - 1; // -1 for divider
+
   return (
     <Box flexDirection="column" marginBottom={1} width={w}>
       <Text wrap="truncate" color={theme.border}>{topLine}</Text>
       <Box flexDirection="row" width={w} flexShrink={0}>
         <Text color={theme.border}>│</Text>
-        <Box flexDirection="column" width={inner} paddingX={1} flexShrink={0}>
-          <Box flexDirection="column" alignItems="center" marginY={1}>
+        <Box flexDirection="row" width={inner} flexShrink={0}>
+          {/* Left Column: Info & Logo */}
+          <Box flexDirection="column" width={leftW} alignItems="center" paddingY={1}>
             <Text bold color={theme.accent}>Welcome back!</Text>
-          </Box>
-          {/* Logo removed here as it is now at the top of App.tsx */}
-          <Box flexDirection="column" alignItems="center" marginBottom={1}>
-            <Text color={theme.secondary} wrap="wrap">{trunc(`${provider} · ${shortModel}`, textW)}</Text>
-            <Text color={theme.muted} dimColor wrap="wrap">{trunc(shortCwd, textW)}</Text>
-          </Box>
-          <Text dimColor color={theme.border}>{'─'.repeat(ruleLen)}</Text>
-          <Box flexDirection="column" marginTop={1} alignItems="flex-start" width={textW}>
-            <Text bold color={theme.primary}>Tips for getting started</Text>
-            <Text color={theme.muted} wrap="wrap">
-              • Run <Text bold color={theme.secondary}>/init</Text> to create a NEXUS.md file with instructions for Nexus.
-            </Text>
-            <Text color={theme.muted} wrap="wrap">
-              • Type <Text bold color={theme.secondary}>/help</Text> to see all commands.
-            </Text>
-            <Text color={theme.muted} wrap="wrap">
-              • Press <Text bold color={theme.secondary}>Ctrl+O</Text> to toggle live reasoning in the transcript.
-            </Text>
-            {inHomeDir && (
-              <Text color={theme.muted} wrap="wrap">
-                • Note: you launched nexus in your home directory — run it inside a project folder for the best experience.
-              </Text>
-            )}
             <Box marginY={1}>
-              <Text dimColor color={theme.border}>{'─'.repeat(ruleLen)}</Text>
+              <Logo theme={theme} embedded />
             </Box>
-            <Text bold color={theme.primary}>Recent activity</Text>
-            <Text color={theme.muted} italic>No recent activity in this session.</Text>
+            <Box flexDirection="column" alignItems="center">
+               <Text color={theme.secondary} wrap="truncate">{trunc(`${provider} · ${shortModel}`, leftW - 2)}</Text>
+               <Text color={theme.muted} dimColor wrap="truncate">{trunc(shortCwd, leftW - 2)}</Text>
+            </Box>
+          </Box>
+
+          {/* Vertical Divider */}
+          <Box width={1}>
+            <Text color={theme.border}>│</Text>
+          </Box>
+
+          {/* Right Column: Tips & Activity */}
+          <Box flexDirection="column" width={rightW} paddingX={2} paddingY={1}>
+            <Box flexDirection="column" marginBottom={1}>
+              <Text bold color={theme.primary}>Tips for getting started</Text>
+              <Text color={theme.muted} wrap="wrap">
+                • Run <Text bold color={theme.secondary}>/init</Text> for project context.
+              </Text>
+              <Text color={theme.muted} wrap="wrap">
+                • Type <Text bold color={theme.secondary}>/help</Text> for all commands.
+              </Text>
+              <Text color={theme.muted} wrap="wrap">
+                • <Text bold color={theme.secondary}>Ctrl+O</Text> toggles live reasoning.
+              </Text>
+            </Box>
+
+            <Text dimColor color={theme.border}>{'─'.repeat(rightW - 4)}</Text>
+
+            <Box flexDirection="column" marginTop={1}>
+              <Text bold color={theme.primary}>Recent activity</Text>
+              <Text color={theme.muted} italic>No recent activity.</Text>
+            </Box>
           </Box>
         </Box>
         <Text color={theme.border}>│</Text>
