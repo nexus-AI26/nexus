@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Box, Text, useInput, useApp } from 'ink';
+import { Box, Text, Static, useInput, useApp } from 'ink';
 import { getConfig, setConfig, isFirstRun, hasApiKey, setApiKey as setKey, PROVIDER_MODELS } from '../core/config.js';
 import { getTheme, type Theme } from '../themes/index.js';
 import { agent, type AgentEvent } from '../core/agent.js';
@@ -11,6 +11,9 @@ import { CommandPalette } from './CommandPalette.js';
 import { StatusBar } from './StatusBar.js';
 import { SetupWizard } from './SetupWizard.js';
 import type { Message } from '../core/providers.js';
+
+/** Single slot so the welcome panel is pinned once at the top of the scrollback (Ink Static). */
+const WELCOME_STATIC_SLOT = [0];
 
 interface SystemMessage {
   role: 'system_output';
@@ -41,9 +44,7 @@ export function App() {
   const [verboseMode, setVerboseMode] = useState(false);
   const [setupMode, setSetupMode] = useState(isFirstRun());
   const [pendingSubmission, setPendingSubmission] = useState<string | null>(null);
-  const [lastResponseTime, setLastResponseTime] = useState<number | null>(null);
   const isRunning = useRef(false);
-  const requestStartTime = useRef<number | null>(null);
 
   useEffect(() => {
     process.stdout.write('\x1b[?25l');
@@ -152,10 +153,6 @@ export function App() {
           isRunning.current = false;
           break;
         case 'done':
-          if (requestStartTime.current) {
-            setLastResponseTime(Date.now() - requestStartTime.current);
-            requestStartTime.current = null;
-          }
           setIsThinking(false);
           setIsWriting(false);
           setThinkingLabel('analyzing your request...');
@@ -338,7 +335,6 @@ export function App() {
 
       if (isRunning.current) return;
       isRunning.current = true;
-      requestStartTime.current = Date.now();
 
       setMessages(prev => [...prev, { role: 'user' as const, content: text, timestamp: Date.now() }]);
 
@@ -373,14 +369,17 @@ export function App() {
 
   return (
     <Box flexDirection="column">
-      <WelcomeCard 
-        theme={theme} 
-        version="1.0.0" 
-        provider={agent.provider} 
-        model={agent.model} 
-        cwd={process.cwd()} 
-        compact={displayMsgs.length > 0}
-      />
+      <Static items={WELCOME_STATIC_SLOT}>
+        {() => (
+          <WelcomeCard
+            theme={theme}
+            version="1.0.0"
+            provider={agent.provider}
+            model={agent.model}
+            cwd={process.cwd()}
+          />
+        )}
+      </Static>
 
       <MessageList
         messages={displayMsgs}
@@ -391,9 +390,8 @@ export function App() {
         isThinking={isThinking}
         isWriting={isWriting}
         showThinking={showThinking}
-        thinkingLabel={thinkingLabel}
         verbose={verboseMode}
-        lastResponseTime={lastResponseTime}
+        model={agent.model}
       />
 
       {showPalette && (
@@ -431,23 +429,11 @@ export function App() {
 
       <InputBar
         value={input}
-        isThinking={isThinking}
-        isWriting={isWriting}
-        showThinking={showThinking}
-        thinkingLabel={thinkingLabel}
         theme={theme}
         hasKey={hasApiKey()}
       />
 
-      <StatusBar
-        provider={agent.provider}
-        model={agent.model}
-        themeName={theme.name}
-        theme={theme}
-        messageCount={messages.filter(m => (m as any).role !== 'system_output').length}
-        cwd={process.cwd()}
-        showThinking={showThinking}
-      />
+      <StatusBar theme={theme} showThinking={showThinking} />
     </Box>
   );
 }
