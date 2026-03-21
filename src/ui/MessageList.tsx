@@ -118,11 +118,13 @@ function MessageBubble({ message, theme, verbose }: { message: Message; theme: T
   );
 }
 
-function ToolEventRow({ event, theme, verbose }: { event: ToolEvent; theme: Theme; verbose: boolean }) {
+function ToolEventRow({ event, theme, verbose, showWork }: { event: ToolEvent; theme: Theme; verbose: boolean; showWork: boolean }) {
   if (event.type === 'start') {
     const isCodeWriteTool = ['write_file', 'edit_file', 'apply_patch'].includes(event.name);
     const pathValue = event.args && typeof event.args.path === 'string' ? event.args.path : null;
+    const contentValue = event.args && typeof event.args.content === 'string' ? event.args.content : null;
     const actionLabel = isCodeWriteTool ? 'Writing code' : 'Running';
+    
     return (
       <Box flexDirection="column" marginLeft={2}>
         <Box>
@@ -133,9 +135,14 @@ function ToolEventRow({ event, theme, verbose }: { event: ToolEvent; theme: Them
         {isCodeWriteTool && pathValue && (
           <Text color={theme.muted}>Path: {pathValue}</Text>
         )}
-        {verbose && event.args && Object.keys(event.args).length > 0 && (
-          <Box borderStyle="single" borderColor={theme.muted} paddingX={1} marginY={0}>
-             <Text color={theme.muted}>{JSON.stringify(event.args, null, 2)}</Text>
+        
+        {(verbose || (showWork && isCodeWriteTool && contentValue)) && event.args && Object.keys(event.args).length > 0 && (
+          <Box borderStyle="single" borderColor={theme.muted} paddingX={1} marginY={0} flexDirection="column">
+             {isCodeWriteTool && contentValue ? (
+               <CodeBlock code={contentValue} theme={theme} />
+             ) : (
+               <Text color={theme.muted}>{JSON.stringify(event.args, null, 2)}</Text>
+             )}
           </Box>
         )}
       </Box>
@@ -154,7 +161,7 @@ export function MessageList({ messages, theme, toolEvents, streamBuffer, isThink
       ))}
 
       {toolEvents.map((ev, i) => (
-        <ToolEventRow key={i} event={ev} theme={theme} verbose={verbose} />
+        <ToolEventRow key={i} event={ev} theme={theme} verbose={verbose} showWork={showThinking} />
       ))}
 
       {showThinking && isThinking && !isWriting && !streamBuffer && (
