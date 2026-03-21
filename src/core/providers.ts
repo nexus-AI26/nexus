@@ -7,10 +7,11 @@ export interface Message {
 }
 
 export interface StreamChunk {
-  type: 'text' | 'tool_call' | 'error' | 'done';
+  type: 'text' | 'tool_call' | 'tool_call_delta' | 'error' | 'done';
   content?: string;
   toolName?: string;
   toolArgs?: Record<string, unknown>;
+  toolArgsDelta?: string;
   toolCallId?: string;
   error?: string;
 }
@@ -232,6 +233,14 @@ function getToolDefinitions() {
     {
       type: 'function',
       function: {
+        name: 'create_directory',
+        description: 'Create a new directory (and any parent directories if needed)',
+        parameters: { type: 'object', properties: { path: { type: 'string', description: 'Directory path to create' } }, required: ['path'] },
+      },
+    },
+    {
+      type: 'function',
+      function: {
         name: 'web_search',
         description: 'Search the web and return top links',
         parameters: {
@@ -254,6 +263,7 @@ function getAnthropicToolDefinitions() {
     { name: 'run_command', description: 'Execute a shell command', input_schema: { type: 'object', properties: { command: { type: 'string' } }, required: ['command'] } },
     { name: 'list_directory', description: 'List files in a directory', input_schema: { type: 'object', properties: { path: { type: 'string' } }, required: [] } },
     { name: 'search_files', description: 'Search for a pattern in files', input_schema: { type: 'object', properties: { pattern: { type: 'string' }, directory: { type: 'string' } }, required: ['pattern'] } },
+    { name: 'create_directory', description: 'Create a new directory', input_schema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } },
     { name: 'web_search', description: 'Search the web and return top links', input_schema: { type: 'object', properties: { query: { type: 'string' }, limit: { type: 'number' } }, required: ['query'] } },
   ];
 }
@@ -288,9 +298,12 @@ async function parseSSEStream(stream: NodeJS.ReadableStream, onChunk: StreamCall
           for (const tc of delta.tool_calls) {
             if (tc.id) {
               toolCallBuffer = { id: tc.id, name: tc.function?.name ?? '', args: tc.function?.arguments ?? '' };
+              onChunk({ type: 'tool_call_delta', toolName: toolCallBuffer.name, toolCallId: toolCallBuffer.id, toolArgsDelta: toolCallBuffer.args });
             } else if (toolCallBuffer) {
-              toolCallBuffer.args += tc.function?.arguments ?? '';
+              const deltaArgs = tc.function?.arguments ?? '';
+              toolCallBuffer.args += deltaArgs;
               if (tc.function?.name) toolCallBuffer.name = tc.function.name;
+              onChunk({ type: 'tool_call_delta', toolName: toolCallBuffer.name, toolCallId: toolCallBuffer.id, toolArgsDelta: deltaArgs });
             }
           }
         }
@@ -311,8 +324,16 @@ async function parseAnthropicStream(stream: NodeJS.ReadableStream, onChunk: Stre
       if (event.type !== 'event') return;
       try {
         const data = JSON.parse(event.data);
-        if (data.type === 'content_block_delta' && data.delta?.text) {
-          onChunk({ type: 'text', content: data.delta.text });
+        if (data.type === 'content_block_delta') {
+          if (data.delta?.text) {
+             onChunk({ type: 'text', content: data.delta.text });
+          }
+          if (data.delta?.type === 'input_json_delta' && data.delta.partial_json) {
+             onChunk({ type: 'tool_call_delta', toolArgsDelta: data.delta.partial_json });
+          }
+        }
+        if (data.type === 'content_block_start' && data.content_block?.type === 'tool_use') {
+           onChunk({ type: 'tool_call_delta', toolName: data.content_block.name, toolCallId: data.content_block.id });
         }
         if (data.type === 'message_stop') {
           onChunk({ type: 'done' });
