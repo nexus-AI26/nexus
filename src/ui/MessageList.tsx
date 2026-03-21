@@ -1,5 +1,6 @@
 import React from 'react';
 import { Text, Box } from 'ink';
+import { agent } from '../core/agent.js';
 import type { Theme } from '../themes/index.js';
 import type { Message } from '../core/providers.js';
 
@@ -8,11 +9,13 @@ interface MessageListProps {
   theme: Theme;
   toolEvents: ToolEvent[];
   streamBuffer: string;
+  thoughtBuffer: string;
   isThinking: boolean;
   isWriting: boolean;
   showThinking: boolean;
   thinkingLabel: string;
   verbose: boolean;
+  lastResponseTime: number | null;
 }
 
 export interface ToolEvent {
@@ -81,6 +84,7 @@ function renderInline(text: string, theme: Theme): React.ReactNode {
 function MessageBubble({ message, theme, verbose }: { message: Message; theme: Theme; verbose: boolean }) {
   const isUser = message.role === 'user';
   const isTool = message.role === 'tool';
+  const isAssistant = message.role === 'assistant';
 
   const prefix = isUser
     ? <Text color={theme.accent} bold>❯ </Text>
@@ -109,8 +113,13 @@ function MessageBubble({ message, theme, verbose }: { message: Message; theme: T
             )}
           </Box>
         )}
-        {!isUser && !isTool && (
+        {isAssistant && (
           <Box flexDirection="column" flexShrink={1}>
+            {message.thought && (
+              <Box borderStyle="round" borderColor={theme.muted} paddingX={1} marginBottom={1} flexDirection="column">
+                <Text color={theme.muted} italic>Thinking: {message.thought}</Text>
+              </Box>
+            )}
             {renderContent(message.content, theme)}
           </Box>
         )}
@@ -160,7 +169,19 @@ function ToolEventRow({ event, theme, verbose, showWork }: { event: ToolEvent; t
   return null;
 }
 
-export function MessageList({ messages, theme, toolEvents, streamBuffer, isThinking, isWriting, showThinking, thinkingLabel, verbose }: MessageListProps) {
+export function MessageList({
+  messages,
+  theme,
+  toolEvents,
+  streamBuffer,
+  thoughtBuffer,
+  isThinking,
+  isWriting,
+  showThinking,
+  thinkingLabel,
+  verbose,
+  lastResponseTime
+}: MessageListProps) {
   const displayMessages = messages.filter(m => m.role !== 'system');
 
   return (
@@ -173,29 +194,38 @@ export function MessageList({ messages, theme, toolEvents, streamBuffer, isThink
         <ToolEventRow key={i} event={ev} theme={theme} verbose={verbose} showWork={showThinking} />
       ))}
 
-      {showThinking && isThinking && !isWriting && !streamBuffer && (
+      {showThinking && isThinking && !isWriting && !streamBuffer && !thoughtBuffer && (
         <Box>
           <Text color={theme.primary} bold>✦ </Text>
           <Text color={theme.muted}>{thinkingLabel}</Text>
         </Box>
       )}
 
-      {showThinking && isWriting && !streamBuffer && (
-        <Box>
-          <Text color={theme.primary} bold>✦ </Text>
-          <Text color={theme.muted}>writing</Text>
-          <Text color={theme.primary}>…</Text>
-        </Box>
-      )}
-
-      {streamBuffer && (
-        <Box flexDirection="column">
+      {(thoughtBuffer || streamBuffer) && (
+        <Box flexDirection="column" marginBottom={1}>
           <Box>
             <Text color={theme.primary} bold>✦ </Text>
             <Box flexDirection="column" flexShrink={1}>
-              {renderContent(streamBuffer, theme)}
+              {thoughtBuffer && (
+                <Box borderStyle="round" borderColor={theme.muted} paddingX={1} marginBottom={1} flexDirection="column">
+                  <Text color={theme.muted} italic>Thinking: {thoughtBuffer}</Text>
+                </Box>
+              )}
+              {streamBuffer ? renderContent(streamBuffer, theme) : (isWriting && (
+                <Box>
+                   <Text color={theme.muted}>writing</Text>
+                   <Text color={theme.primary}>…</Text>
+                </Box>
+              ))}
             </Box>
           </Box>
+        </Box>
+      )}
+
+      {lastResponseTime !== null && displayMessages.length > 0 && displayMessages[displayMessages.length - 1]?.role === 'assistant' && !isThinking && !isWriting && (
+        <Box marginLeft={2} marginBottom={1}>
+           <Text color={theme.muted}>▣ Build · </Text>
+           <Text color={theme.muted} dimColor>{agent.model} · {(lastResponseTime / 1000).toFixed(1)}s</Text>
         </Box>
       )}
     </Box>
