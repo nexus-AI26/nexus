@@ -19,13 +19,7 @@ export function InputBar({ value, isThinking, isWriting, showThinking, thinkingL
   const activityLabel = isWriting ? 'writing...' : thinkingLabel;
 
   return (
-    <Box flexDirection="column" marginTop={1}>
-      <Text color={theme.muted}>────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</Text>
-      <Box paddingX={1} marginBottom={0}>
-        <Text color={theme.muted}>❯ Try <Text bold color={theme.secondary}>"edit <Text italic>filepath</Text> to..."</Text></Text>
-      </Box>
-      <Text color={theme.muted}>────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────</Text>
-      
+    <Box flexDirection="column" marginTop={0}>
       <Box
         borderStyle="round"
         borderColor={isThinking ? theme.primary : theme.border}
@@ -50,9 +44,6 @@ export function InputBar({ value, isThinking, isWriting, showThinking, thinkingL
             <Text color={theme.muted} dimColor>▏</Text>
           </Box>
         )}
-      </Box>
-      <Box paddingX={1} marginTop={0}>
-        <Text color={theme.muted} dimColor>? for shortcuts</Text>
       </Box>
     </Box>
   );
