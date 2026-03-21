@@ -8,41 +8,44 @@ interface LogoProps {
   compact?: boolean;
 }
 
+/** FIGlet slant, ASCII-only — reliable column width on Windows and narrow terminals */
 const LOGO_FULL = [
-  ' ███╗   ██╗███████╗██╗  ██╗██╗   ██╗███████╗',
-  ' ████╗  ██║██╔════╝╚██╗██╔╝██║   ██║██╔════╝',
-  ' ██╔██╗ ██║█████╗   ╚███╔╝ ██║   ██║███████╗',
-  ' ██║╚██╗██║██╔══╝   ██╔██╗ ██║   ██║╚════██║',
-  ' ██║ ╚████║███████╗██╔╝ ██╗╚██████╔╝███████║',
-  ' ╚═╝  ╚═══╝╚══════╝╚═╝  ╚═╝ ╚═════╝ ╚══════╝',
+  '    _   _________  ____  _______',
+  '   / | / / ____/ |/ / / / / ___/',
+  '  /  |/ / __/  |   / / / /\\__ \\ ',
+  ' / /|  / /___ /   / /_/ /___/ / ',
+  '/_/ |_/_____//_/|_\\____//____/  ',
 ];
 
-const LOGO_COMPACT = ' ✦ nexus';
+const LOGO_UNDERLINE = '────────────────────────────────';
+
+const LOGO_COMPACT = 'nexus';
 
 export function Logo({ theme, compact = false }: LogoProps) {
   if (compact) {
     return (
       <Box>
+        <Text color={theme.accent}>✦ </Text>
         <Text bold color={theme.primary}>{LOGO_COMPACT}</Text>
         <Text color={theme.muted}> — AI coding agent</Text>
       </Box>
     );
   }
 
-  const colors = [
-    theme.primary,
+  const lineColors = [
     theme.primary,
     theme.secondary,
+    theme.accent,
     theme.secondary,
-    theme.accent,
-    theme.accent,
+    theme.primary,
   ];
 
   return (
     <Box flexDirection="column" alignItems="center" marginBottom={1}>
       {LOGO_FULL.map((line, i) => (
-        <Text key={i} color={colors[i] ?? theme.primary} bold>{line}</Text>
+        <Text key={i} color={lineColors[i] ?? theme.primary} bold>{line}</Text>
       ))}
+      <Text dimColor color={theme.border}>{LOGO_UNDERLINE}</Text>
       <Box marginTop={1} gap={2}>
         <Text color={theme.muted}>AI coding agent</Text>
         <Text color={theme.accent}>✦</Text>
