@@ -46,8 +46,6 @@ export function App() {
   const requestStartTime = useRef<number | null>(null);
 
   useEffect(() => {
-    // Some terminals re-enable the native cursor during redraws.
-    // Force-hide it while the app is mounted to prevent bottom flicker.
     process.stdout.write('\x1b[?25l');
     return () => {
       process.stdout.write('\x1b[?25h');
@@ -127,7 +125,6 @@ export function App() {
         case 'tool_start':
           setThinkingLabel(`running tool: ${event.name}...`);
           setToolEvents(prev => {
-             // Remove any 'update' event for this tool ID and add the real 'start' event
              const filtered = prev.filter(e => (e as any).id !== (event as any).id);
              return [...filtered, { type: 'start' as const, name: event.name, args: event.args }];
           });
@@ -326,8 +323,6 @@ export function App() {
         () => { exit(); process.exit(0); },
       );
 
-      // For slash commands, keep system output visible in the chat.
-      // Only force-refresh from agent history when the command explicitly mutates it.
       if (result.type === 'clear') {
         refreshMessages();
       } else if (slashCmd === 'load' || slashCmd === 'l') {
@@ -377,7 +372,7 @@ export function App() {
   });
 
   return (
-    <Box flexDirection="column" height="100%">
+    <Box flexDirection="column">
       <WelcomeCard 
         theme={theme} 
         version="1.0.0" 
