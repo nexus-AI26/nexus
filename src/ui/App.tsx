@@ -39,6 +39,7 @@ export function App() {
   const [verboseMode, setVerboseMode] = useState(false);
   const [setupMode, setSetupMode] = useState(isFirstRun());
   const [logoShown, setLogoShown] = useState(true);
+  const [pendingSubmission, setPendingSubmission] = useState<string | null>(null);
   const isRunning = useRef(false);
 
   const refreshMessages = useCallback(() => {
@@ -112,6 +113,13 @@ export function App() {
 
     return unsub;
   }, [refreshMessages]);
+
+  useEffect(() => {
+    if (isRunning.current || !pendingSubmission) return;
+    const next = pendingSubmission;
+    setPendingSubmission(null);
+    void handleSubmit(next);
+  }, [pendingSubmission]);
 
   useInput((inputChar, key) => {
     if (setupMode) return;
@@ -205,12 +213,21 @@ export function App() {
     }
 
     if (key.return) {
-      if (isRunning.current || !input.trim()) return;
+      if (!input.trim()) return;
       const text = input.trim();
       setInput('');
       setShowPalette(false);
       setPaletteIndex(0);
       setLogoShown(false);
+      if (isRunning.current) {
+        setPendingSubmission(text);
+        setMessages(prev => [...prev, {
+          role: 'system_output' as const,
+          content: 'Agent is busy. Your message was queued and will run next.',
+          timestamp: Date.now(),
+        }]);
+        return;
+      }
       handleSubmit(text);
       return;
     }
