@@ -28,6 +28,8 @@ export function App() {
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);
+  const [isWriting, setIsWriting] = useState(false);
+  const [showThinking, setShowThinking] = useState(true);
   const [streamBuffer, setStreamBuffer] = useState('');
   const [toolEvents, setToolEvents] = useState<ToolEvent[]>([]);
   const [toolAsk, setToolAsk] = useState<{ id: string; name: string; args: Record<string, unknown> } | null>(null);
@@ -43,6 +45,23 @@ export function App() {
     setMessages([...agent.messages]);
   }, []);
 
+  const resetForNewChat = useCallback(() => {
+    agent.clearHistory();
+    setMessages([]);
+    setStreamBuffer('');
+    setToolEvents([]);
+    setToolAsk(null);
+    setToolAskExpanded(false);
+    setInput('');
+    setShowPalette(false);
+    setPaletteIndex(0);
+    setIsThinking(false);
+    setIsWriting(false);
+    isRunning.current = false;
+    setLogoShown(true);
+    process.stdout.write('\x1Bc');
+  }, []);
+
   useEffect(() => {
     refreshMessages();
 
@@ -50,10 +69,12 @@ export function App() {
       switch (event.type) {
         case 'thinking':
           setIsThinking(true);
+          setIsWriting(false);
           setStreamBuffer('');
           setToolEvents([]);
           break;
         case 'text':
+          setIsWriting(prev => prev || true);
           setStreamBuffer(prev => prev + (event.content ?? ''));
           break;
         case 'tool_start':
@@ -69,6 +90,7 @@ export function App() {
           break;
         case 'error':
           setIsThinking(false);
+          setIsWriting(false);
           setStreamBuffer('');
           setMessages(prev => [...prev, {
             role: 'system_output' as const,
@@ -79,6 +101,7 @@ export function App() {
           break;
         case 'done':
           setIsThinking(false);
+          setIsWriting(false);
           setStreamBuffer('');
           setToolEvents([]);
           refreshMessages();
@@ -96,6 +119,13 @@ export function App() {
     if (key.ctrl && inputChar === 'c') {
       if (isRunning.current || isThinking || toolAsk) {
         agent.cancel();
+        setIsThinking(false);
+        setIsWriting(false);
+        setStreamBuffer('');
+        setToolEvents([]);
+        setToolAsk(null);
+        setToolAskExpanded(false);
+        isRunning.current = false;
       } else {
         exit();
         process.exit(0);
@@ -105,6 +135,11 @@ export function App() {
 
     if (key.ctrl && inputChar === 'b') {
       setVerboseMode(v => !v);
+      return;
+    }
+
+    if (key.ctrl && inputChar === 'o' && !toolAsk) {
+      setShowThinking(v => !v);
       return;
     }
 
@@ -202,7 +237,8 @@ export function App() {
 
   const handleSubmit = useCallback(async (text: string) => {
     if (text.startsWith('/')) {
-      await executeCommand(
+      const slashCmd = text.trim().slice(1).split(/\s+/)[0]?.toLowerCase() ?? '';
+      const result = await executeCommand(
         text,
         agent,
         addSystemMessage,
@@ -210,13 +246,22 @@ export function App() {
           const t = getTheme(newTheme);
           setTheme(t);
         },
-        () => {
-          agent.clearHistory();
-          setMessages([]);
-        },
+        resetForNewChat,
         () => { exit(); process.exit(0); },
       );
-      refreshMessages();
+
+      // For slash commands, keep system output visible in the chat.
+      // Only force-refresh from agent history when the command explicitly mutates it.
+      if (result.type === 'clear') {
+        refreshMessages();
+      } else if (slashCmd === 'load' || slashCmd === 'l') {
+        refreshMessages();
+      } else if (result.type === 'message' && result.message) {
+        if (isRunning.current) return;
+        isRunning.current = true;
+        setMessages(prev => [...prev, { role: 'user' as const, content: text, timestamp: Date.now() }]);
+        await agent.send(result.message);
+      }
       return;
     }
 
@@ -226,7 +271,7 @@ export function App() {
     setMessages(prev => [...prev, { role: 'user' as const, content: text, timestamp: Date.now() }]);
 
     await agent.send(text);
-  }, [addSystemMessage, exit, refreshMessages]);
+  }, [addSystemMessage, exit, refreshMessages, resetForNewChat]);
 
   if (setupMode) {
     return (
@@ -266,6 +311,8 @@ export function App() {
         toolEvents={toolEvents}
         streamBuffer={streamBuffer}
         isThinking={isThinking}
+        isWriting={isWriting}
+        showThinking={showThinking}
         verbose={verboseMode}
       />
 
@@ -305,6 +352,8 @@ export function App() {
       <InputBar
         value={input}
         isThinking={isThinking}
+        isWriting={isWriting}
+        showThinking={showThinking}
         theme={theme}
         hasKey={hasApiKey()}
       />
@@ -316,6 +365,7 @@ export function App() {
         theme={theme}
         messageCount={messages.filter(m => (m as any).role !== 'system_output').length}
         cwd={process.cwd()}
+        showThinking={showThinking}
       />
     </Box>
   );
