@@ -3,6 +3,7 @@ import { Text, Box, Static } from 'ink';
 import type { Theme } from '../themes/index.js';
 import type { Message } from '../core/providers.js';
 import { useTerminalWidth } from './useTerminalWidth.js';
+import { WelcomeCard } from './Logo.js';
 
 interface MessageListProps {
   messages: Message[];
@@ -15,6 +16,12 @@ interface MessageListProps {
   showThinking: boolean;
   verbose: boolean;
   model: string;
+  welcomeData?: {
+    version: string;
+    provider: string;
+    model: string;
+    cwd: string;
+  };
 }
 
 export interface ToolEvent {
@@ -226,24 +233,44 @@ export function MessageList({
   showThinking,
   verbose,
   model,
+  welcomeData,
 }: MessageListProps) {
   const staticMessages = messages.filter(m => m.role !== 'system');
   const w = useTerminalWidth();
   const modelLabel = model;
 
+  const items = welcomeData 
+    ? [{ role: 'welcome' as const, ...welcomeData }, ...staticMessages]
+    : staticMessages;
+
   return (
     <Box flexDirection="column" flexGrow={1} paddingX={0}>
-      <Static items={staticMessages}>
-        {(msg, i) => (
-          <MessageBubble
-            key={i}
-            message={msg}
-            theme={theme}
-            verbose={verbose}
-            terminalWidth={w}
-            modelLabel={modelLabel}
-          />
-        )}
+      <Static items={items}>
+        {(msg, i) => {
+          if ((msg as any).role === 'welcome') {
+             const d = msg as any;
+             return (
+               <WelcomeCard
+                 key="welcome"
+                 theme={theme}
+                 version={d.version}
+                 provider={d.provider}
+                 model={d.model}
+                 cwd={d.cwd}
+               />
+             );
+          }
+          return (
+            <MessageBubble
+              key={i}
+              message={msg as Message}
+              theme={theme}
+              verbose={verbose}
+              terminalWidth={w}
+              modelLabel={modelLabel}
+            />
+          );
+        }}
       </Static>
 
       {toolEvents.map((ev, i) => (
