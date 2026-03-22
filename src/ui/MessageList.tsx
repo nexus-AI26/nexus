@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo, useMemo, useCallback } from 'react';
 import { Text, Box, Static } from 'ink';
 import type { Theme } from '../themes/index.js';
 import type { Message } from '../core/providers.js';
@@ -45,18 +45,29 @@ function toolHeading(name: string): string {
   return TOOL_HEADING[name] ?? name;
 }
 
-function assistantMetaLine(width: number, ts: number, modelId: string): string {
+// Global caches for performance
+const contentRenderCache = new Map<string, React.ReactNode[]>();
+const inlineRenderCache = new Map<string, React.ReactNode>();
+const metaLineCache = new Map<string, string>();
+
+const assistantMetaLine = (width: number, ts: number, modelId: string): string => {
+  const cacheKey = `${width}-${ts}-${modelId}`;
+  if (metaLineCache.has(cacheKey)) {
+    return metaLineCache.get(cacheKey)!;
+  }
   const time = new Date(ts).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
   let meta = `${time} ${modelId}`;
   if ([...meta].length > width) {
     meta = meta.slice(0, Math.max(0, width - 1)) + '…';
   }
   const pad = Math.max(0, width - [...meta].length);
-  return ' '.repeat(pad) + meta;
-}
+  const result = ' '.repeat(pad) + meta;
+  metaLineCache.set(cacheKey, result);
+  return result;
+};
 
-function CodeBlock({ code, theme }: { code: string; theme: Theme }) {
-  const lines = code.split('\n');
+const CodeBlock = memo(({ code, theme }: { code: string; theme: Theme }) => {
+  const lines = useMemo(() => code.split('\n'), [code]);
   return (
     <Box
       flexDirection="column"
@@ -75,20 +86,25 @@ function CodeBlock({ code, theme }: { code: string; theme: Theme }) {
       ))}
     </Box>
   );
-}
+});
 
-function renderContent(content: string, theme: Theme) {
+const renderContent = (content: string, theme: Theme) => {
+  const cacheKey = `${content.substring(0, 100)}|${theme.primary}`;
+  if (contentRenderCache.has(cacheKey)) {
+    return contentRenderCache.get(cacheKey)!;
+  }
+
   const codeBlockRe = /```(?:\w+)?\n?([\s\S]*?)```/g;
-  const parts: React.ReactNode[] = [];
+  const renderedParts: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
   while ((match = codeBlockRe.exec(content)) !== null) {
     if (match.index > lastIndex) {
       const text = content.slice(lastIndex, match.index);
-      parts.push(<Text key={`t-${lastIndex}`} wrap="wrap">{renderInline(text, theme)}</Text>);
+      renderedParts.push(<Text key={`t-${lastIndex}`} wrap="wrap">{renderInline(text, theme)}</Text>);
     }
-    parts.push(<CodeBlock key={`c-${match.index}`} code={match[1] ?? ''} theme={theme} />);
+    renderedParts.push(<CodeBlock key={`c-${match.index}`} code={match[1] ?? ''} theme={theme} />);
     lastIndex = match.index + match[0].length;
   }
 
@@ -98,31 +114,55 @@ function renderContent(content: string, theme: Theme) {
   if (openMatch) {
     const beforeOpen = remaining.split(/```/)[0];
     if (beforeOpen) {
-      parts.push(<Text key="t-before-open" wrap="wrap">{renderInline(beforeOpen, theme)}</Text>);
+      renderedParts.push(<Text key="t-before-open" wrap="wrap">{renderInline(beforeOpen, theme)}</Text>);
     }
-    parts.push(<CodeBlock key="c-open" code={openMatch[1] ?? ''} theme={theme} />);
+    renderedParts.push(<CodeBlock key="c-open" code={openMatch[1] ?? ''} theme={theme} />);
   } else if (remaining) {
-    parts.push(<Text key="t-end" wrap="wrap">{renderInline(remaining, theme)}</Text>);
+    renderedParts.push(<Text key="t-end" wrap="wrap">{renderInline(remaining, theme)}</Text>);
   }
 
-  return parts.length > 0 ? parts : [<Text key="empty" wrap="wrap">{renderInline(content, theme)}</Text>];
-}
+  const result = renderedParts.length > 0 ? renderedParts : [<Text key="empty" wrap="wrap">{renderInline(content, theme)}</Text>];
+  
+  // Limit cache size to prevent memory leaks
+  if (contentRenderCache.size > 100) {
+    const firstKey = contentRenderCache.keys().next().value;
+    if (firstKey) contentRenderCache.delete(firstKey);
+  }
+  
+  contentRenderCache.set(cacheKey, result);
+  return result;
+};
 
-function renderInline(text: string, theme: Theme): React.ReactNode {
+const renderInline = (text: string, theme: Theme): React.ReactNode => {
+  const cacheKey = `${text}|${theme.primary}`;
+  if (inlineRenderCache.has(cacheKey)) {
+    return inlineRenderCache.get(cacheKey)!;
+  }
+
   const boldRe = /\*\*(.+?)\*\*/g;
-  const parts: React.ReactNode[] = [];
+  const renderedParts: React.ReactNode[] = [];
   let last = 0;
   let m: RegExpExecArray | null;
   while ((m = boldRe.exec(text)) !== null) {
-    if (m.index > last) parts.push(text.slice(last, m.index));
-    parts.push(<Text key={m.index} bold color={theme.primary}>{m[1]}</Text>);
+    if (m.index > last) renderedParts.push(text.slice(last, m.index));
+    renderedParts.push(<Text key={m.index} bold color={theme.primary}>{m[1]}</Text>);
     last = m.index + m[0].length;
   }
-  if (last < text.length) parts.push(text.slice(last));
-  return <>{parts}</>;
-}
+  if (last < text.length) renderedParts.push(text.slice(last));
+  
+  const result = <>{renderedParts}</>;
+  
+  // Limit cache size to prevent memory leaks
+  if (inlineRenderCache.size > 200) {
+    const firstKey = inlineRenderCache.keys().next().value;
+    if (firstKey) inlineRenderCache.delete(firstKey);
+  }
+  
+  inlineRenderCache.set(cacheKey, result);
+  return result;
+};
 
-function MessageBubble({
+const MessageBubble = memo(({
   message,
   theme,
   verbose,
@@ -134,16 +174,29 @@ function MessageBubble({
   verbose: boolean;
   terminalWidth: number;
   modelLabel: string;
-}) {
-  const isUser = message.role === 'user';
-  const isTool = message.role === 'tool';
-  const isAssistant = message.role === 'assistant';
+}) => {
+  const isUser = useMemo(() => message.role === 'user', [message.role]);
+  const isTool = useMemo(() => message.role === 'tool', [message.role]);
+  const isAssistant = useMemo(() => message.role === 'assistant', [message.role]);
 
-  const prefix = isUser
-    ? <Text color={theme.accent} bold>❯ </Text>
-    : isTool
-    ? null
-    : <Text color={theme.primary}>● </Text>;
+  const prefix = useMemo(() => {
+    if (isUser) return <Text color={theme.accent} bold>❯ </Text>;
+    if (isTool) return null;
+    return <Text color={theme.primary}>● </Text>;
+  }, [isUser, isTool, theme.accent, theme.primary]);
+
+  const toolLines = useMemo(() => {
+    if (!isTool || !verbose) return null;
+    return message.content.split('\n');
+  }, [isTool, verbose, message.content]);
+
+  const truncatedContent = useMemo(() => {
+    if (isTool && !verbose) {
+      const content = message.content;
+      return content.length > 150 ? content.slice(0, 150) + '… (Ctrl+B to expand)' : content;
+    }
+    return message.content;
+  }, [isTool, verbose, message.content]);
 
   return (
     <Box flexDirection="column" marginBottom={1}>
@@ -160,7 +213,7 @@ function MessageBubble({
             <Text color={theme.primary}>
               ● {toolHeading(message.toolName || 'tool')}
             </Text>
-            {(verbose ? message.content.split('\n') : [message.content.slice(0, 150) + (message.content.length > 150 ? '… (Ctrl+B to expand)' : '')]).map((line, i) => (
+            {(toolLines || [truncatedContent]).map((line, i) => (
               <Box key={i} flexDirection="row">
                 <Text color={theme.muted} dimColor>  ⎿ </Text>
                 <Text color={theme.muted} dimColor wrap="truncate">{line || ' '}</Text>
@@ -181,32 +234,40 @@ function MessageBubble({
       </Box>
     </Box>
   );
-}
+});
 
-function ToolEventRow({ event, theme, verbose, showWork, w }: { event: ToolEvent; theme: Theme; verbose: boolean; showWork: boolean; w: number }) {
-  const isCodeWriteTool = ['write_file', 'edit_file', 'apply_patch'].includes(event.name);
-  const pathValue = event.args && typeof event.args.path === 'string' ? event.args.path : null;
-  let contentValue = event.args && typeof event.args.content === 'string' ? event.args.content : null;
-
-  if (event.type === 'start' || event.type === 'update') {
-    if (event.type === 'update' && event.partialArgs && !contentValue) {
+const ToolEventRow = memo(({ event, theme, verbose, showWork, w }: { event: ToolEvent; theme: Theme; verbose: boolean; showWork: boolean; w: number }) => {
+  const isCodeWriteTool = useMemo(() => ['write_file', 'edit_file', 'apply_patch'].includes(event.name), [event.name]);
+  const pathValue = useMemo(() => event.args && typeof event.args.path === 'string' ? event.args.path : null, [event.args]);
+  
+  const contentValue = useMemo(() => {
+    if (event.type === 'update' && event.partialArgs && !pathValue) {
       const contentMatch = event.partialArgs.match(/"content"\s*:\s*"([\s\S]*?)(?:"|$)/);
       const commandMatch = event.partialArgs.match(/"command"\s*:\s*"([\s\S]*?)(?:"|$)/);
       const pathMatch = event.partialArgs.match(/"path"\s*:\s*"([\s\S]*?)(?:"|$)/);
       
       if (contentMatch && contentMatch[1]) {
-        contentValue = contentMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
+        return contentMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
       }
       if (commandMatch && commandMatch[1]) {
-        contentValue = commandMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
-      }
-      if (pathMatch && pathMatch[1] && !pathValue) {
-         (event as any)._streamingPath = pathMatch[1].replace(/\\"/g, '"');
+        return commandMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"');
       }
     }
+    return event.args && typeof event.args.content === 'string' ? event.args.content : null;
+  }, [event.type, event.partialArgs, event.args, pathValue]);
 
-    const displayPath = pathValue || (event as any)._streamingPath || '…';
+  const displayPath = useMemo(() => {
+    if (pathValue) return pathValue;
+    if (event.type === 'update' && event.partialArgs) {
+      const pathMatch = event.partialArgs.match(/"path"\s*:\s*"([\s\S]*?)(?:"|$)/);
+      if (pathMatch && pathMatch[1]) {
+        return pathMatch[1].replace(/\\"/g, '"');
+      }
+    }
+    return '…';
+  }, [pathValue, event.type, event.partialArgs]);
 
+  if (event.type === 'start' || event.type === 'update') {
     return (
       <Box flexDirection="column" marginLeft={0} marginBottom={1}>
         <Box>
@@ -261,9 +322,9 @@ function ToolEventRow({ event, theme, verbose, showWork, w }: { event: ToolEvent
   }
 
   return null;
-}
+});
 
-export function MessageList({
+export const MessageList = memo(({
   messages,
   theme,
   toolEvents,
@@ -275,17 +336,63 @@ export function MessageList({
   verbose,
   model,
   welcomeData,
-}: MessageListProps) {
-  const staticMessages = messages.filter(m => m.role !== 'system');
+}: MessageListProps) => {
+  const staticMessages = useMemo(() => messages.filter(m => m.role !== 'system'), [messages]);
   const w = useTerminalWidth();
   const modelLabel = model;
 
-  const items = welcomeData 
-    ? [{ role: 'welcome' as const, ...welcomeData }, ...staticMessages]
-    : staticMessages;
+  const items = useMemo(() => {
+    return welcomeData 
+      ? [{ role: 'welcome' as const, ...welcomeData }, ...staticMessages]
+      : staticMessages;
+  }, [welcomeData, staticMessages]);
 
   // Windowing for "contained" look. Show last 10 items to avoid terminal overflow in Windows.
-  const windowedItems = items.slice(-10);
+  const windowedItems = useMemo(() => items.slice(-10), [items]);
+
+  const streamComponents = useMemo(() => {
+    const components: React.ReactNode[] = [];
+    
+    toolEvents.forEach((ev, i) => {
+      components.push(
+        <ToolEventRow key={i} event={ev} theme={theme} verbose={verbose} showWork={showThinking} w={w} />
+      );
+    });
+
+    if (thoughtBuffer || streamBuffer) {
+      components.push(
+        <Box key="stream" flexDirection="column" marginBottom={1}>
+          {thoughtBuffer && showThinking && (
+            <Box flexDirection="row" marginBottom={streamBuffer ? 1 : 0} alignItems="flex-start">
+              <Text color={theme.muted}>✻ </Text>
+              <Text color={theme.muted} dimColor wrap="wrap">{thoughtBuffer}</Text>
+            </Box>
+          )}
+          {streamBuffer && (
+            <Box flexDirection="column">
+              <Text color={theme.muted} dimColor>{assistantMetaLine(w, Date.now(), modelLabel)}</Text>
+              <Box flexDirection="row" alignItems="flex-start">
+                <Text color={theme.primary}>● </Text>
+                <Box flexDirection="column" flexShrink={1}>
+                  {renderContent(streamBuffer, theme)}
+                </Box>
+              </Box>
+            </Box>
+          )}
+        </Box>
+      );
+    }
+
+    if (showThinking && isThinking && !isWriting && !streamBuffer && !thoughtBuffer) {
+      components.push(
+        <Box key="thinking" marginBottom={1}>
+          <Text color={theme.muted}>✻ Thinking…</Text>
+        </Box>
+      );
+    }
+
+    return components;
+  }, [toolEvents, thoughtBuffer, streamBuffer, showThinking, isThinking, isWriting, theme, verbose, w, modelLabel]);
 
   return (
     <Box flexDirection="column" flexGrow={1} paddingX={0} overflow="hidden">
@@ -325,38 +432,8 @@ export function MessageList({
       })}
 
       <Box flexDirection="column" paddingLeft={2}>
-        {toolEvents.map((ev, i) => (
-          <ToolEventRow key={i} event={ev} theme={theme} verbose={verbose} showWork={showThinking} w={w} />
-        ))}
-
-        {(thoughtBuffer || streamBuffer) && (
-          <Box flexDirection="column" marginBottom={1}>
-            {thoughtBuffer && showThinking && (
-              <Box flexDirection="row" marginBottom={streamBuffer ? 1 : 0} alignItems="flex-start">
-                <Text color={theme.muted}>✻ </Text>
-                <Text color={theme.muted} dimColor wrap="wrap">{thoughtBuffer}</Text>
-              </Box>
-            )}
-            {streamBuffer && (
-              <Box flexDirection="column">
-                <Text color={theme.muted} dimColor>{assistantMetaLine(w, Date.now(), modelLabel)}</Text>
-                <Box flexDirection="row" alignItems="flex-start">
-                  <Text color={theme.primary}>● </Text>
-                  <Box flexDirection="column" flexShrink={1}>
-                    {renderContent(streamBuffer, theme)}
-                  </Box>
-                </Box>
-              </Box>
-            )}
-          </Box>
-        )}
-
-        {showThinking && isThinking && !isWriting && !streamBuffer && !thoughtBuffer && (
-          <Box marginBottom={1}>
-            <Text color={theme.muted}>✻ Thinking…</Text>
-          </Box>
-        )}
+        {streamComponents}
       </Box>
     </Box>
   );
-}
+});
