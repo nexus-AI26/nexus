@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 import { Box, Text } from 'ink';
 import type { Theme } from '../themes/index.js';
 import { horizontalRule, useTerminalWidth } from './useTerminalWidth.js';
@@ -9,11 +9,13 @@ interface InputBarProps {
   hasKey: boolean;
 }
 
-export function InputBar({ value, theme, hasKey }: InputBarProps) {
+export const InputBar = memo(({ value, theme, hasKey }: InputBarProps) => {
   const w = useTerminalWidth();
-  const rule = horizontalRule(w);
-  const lines = value.split('\n');
-  const displayValue = lines[lines.length - 1] ?? '';
+  const rule = useMemo(() => horizontalRule(w), [w]);
+  const displayValue = useMemo(() => {
+    const lines = value.split('\n');
+    return lines[lines.length - 1] ?? '';
+  }, [value]);
 
   return (
     <Box flexDirection="column" marginTop={0} width={w}>
@@ -31,4 +33,4 @@ export function InputBar({ value, theme, hasKey }: InputBarProps) {
       <Text dimColor color={theme.border}>{rule}</Text>
     </Box>
   );
-}
+});
