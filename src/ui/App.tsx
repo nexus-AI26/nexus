@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Box, Text, useInput, useApp } from 'ink';
 import { getConfig, setConfig, isFirstRun, hasApiKey, setApiKey as setKey, PROVIDER_MODELS } from '../core/config.js';
 import { getTheme, type Theme } from '../themes/index.js';
@@ -12,6 +12,40 @@ import { StatusBar } from './StatusBar.js';
 import { SetupWizard } from './SetupWizard.js';
 import { useTerminalSize } from './useTerminalWidth.js';
 import type { Message } from '../core/providers.js';
+
+// Debounce utility for input
+function useDebounce<T>(value: T, delay: number): T {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
+// Throttle utility for stream updates
+function useThrottle<T>(value: T, delay: number): T {
+  const [throttledValue, setThrottledValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setThrottledValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return throttledValue;
+}
 
 interface SystemMessage {
   role: 'system_output';
@@ -32,6 +66,7 @@ export function App() {
 
   const [theme, setTheme] = useState<Theme>(getTheme(cfg.theme));
   const [input, setInput] = useState('');
+  const debouncedInput = useDebounce(input, 100); // Debounce input by 100ms
   const [messages, setMessages] = useState<DisplayMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const [isWriting, setIsWriting] = useState(false);
@@ -39,6 +74,10 @@ export function App() {
   const [thinkingLabel, setThinkingLabel] = useState('analyzing your request...');
   const [streamBuffer, setStreamBuffer] = useState('');
   const [thoughtBuffer, setThoughtBuffer] = useState('');
+  
+  // Throttle stream updates to reduce re-renders during streaming
+  const throttledStreamBuffer = useThrottle(streamBuffer, 50);
+  const throttledThoughtBuffer = useThrottle(thoughtBuffer, 50);
   const [toolEvents, setToolEvents] = useState<ToolEvent[]>([]);
   const [toolAsk, setToolAsk] = useState<{ id: string; name: string; args: Record<string, unknown> } | null>(null);
   const [toolAskExpanded, setToolAskExpanded] = useState(false);
@@ -92,6 +131,50 @@ export function App() {
     isRunning.current = false;
     clearTerminalScreen();
   }, []);
+
+  const addSystemMessage = useCallback((content: string) => {
+    setMessages(prev => [...prev, {
+      role: 'system_output' as const,
+      content,
+      timestamp: Date.now(),
+    }]);
+  }, []);
+
+  const handleSubmit = useCallback(async (text: string) => {
+    if (text.startsWith('/')) {
+      const slashCmd = text.trim().slice(1).split(/\s+/)[0]?.toLowerCase() ?? '';
+      const result = await executeCommand(
+        text,
+        agent,
+        addSystemMessage,
+        (newTheme: string) => {
+          const t = getTheme(newTheme);
+          setTheme(t);
+        },
+        resetForNewChat,
+        () => { exit(); process.exit(0); },
+      );
+
+      if (result.type === 'clear') {
+        refreshMessages();
+      } else if (slashCmd === 'load' || slashCmd === 'l') {
+        refreshMessages();
+      } else if (result.type === 'message' && result.message) {
+        if (isRunning.current) return;
+        isRunning.current = true;
+        setMessages(prev => [...prev, { role: 'user' as const, content: text, timestamp: Date.now() }]);
+        await agent.send(result.message);
+      }
+      return;
+    }
+
+      if (isRunning.current) return;
+      isRunning.current = true;
+
+      setMessages(prev => [...prev, { role: 'user' as const, content: text, timestamp: Date.now() }]);
+
+      await agent.send(text);
+  }, [addSystemMessage, exit, refreshMessages, resetForNewChat]);
 
   useEffect(() => {
     if (!isThinking || isWriting) return;
@@ -193,6 +276,15 @@ export function App() {
     void handleSubmit(next);
   }, [pendingSubmission]);
 
+  useEffect(() => {
+    if (debouncedInput.startsWith('/')) {
+      setShowPalette(true);
+      setPaletteIndex(0);
+    } else {
+      setShowPalette(false);
+    }
+  }, [debouncedInput]);
+
   useInput((inputChar, key) => {
     if (setupMode) return;
 
@@ -226,6 +318,10 @@ export function App() {
     if (toolAsk) {
       if (key.ctrl && inputChar === 'o') {
         setToolAskExpanded(prev => !prev);
+        return;
+      }
+      if (key.upArrow || key.downArrow) {
+        // Allow up/down navigation during tool approval
         return;
       }
       if (inputChar?.toLowerCase() === 'y' || key.return) {
@@ -306,58 +402,9 @@ export function App() {
     if (!key.ctrl && !key.meta && inputChar) {
       const newVal = input + inputChar;
       setInput(newVal);
-      if (newVal.startsWith('/')) {
-        setShowPalette(true);
-        setPaletteIndex(0);
-      } else {
-        setShowPalette(false);
-      }
     }
   });
 
-  const addSystemMessage = useCallback((content: string) => {
-    setMessages(prev => [...prev, {
-      role: 'system_output' as const,
-      content,
-      timestamp: Date.now(),
-    }]);
-  }, []);
-
-  const handleSubmit = useCallback(async (text: string) => {
-    if (text.startsWith('/')) {
-      const slashCmd = text.trim().slice(1).split(/\s+/)[0]?.toLowerCase() ?? '';
-      const result = await executeCommand(
-        text,
-        agent,
-        addSystemMessage,
-        (newTheme: string) => {
-          const t = getTheme(newTheme);
-          setTheme(t);
-        },
-        resetForNewChat,
-        () => { exit(); process.exit(0); },
-      );
-
-      if (result.type === 'clear') {
-        refreshMessages();
-      } else if (slashCmd === 'load' || slashCmd === 'l') {
-        refreshMessages();
-      } else if (result.type === 'message' && result.message) {
-        if (isRunning.current) return;
-        isRunning.current = true;
-        setMessages(prev => [...prev, { role: 'user' as const, content: text, timestamp: Date.now() }]);
-        await agent.send(result.message);
-      }
-      return;
-    }
-
-      if (isRunning.current) return;
-      isRunning.current = true;
-
-      setMessages(prev => [...prev, { role: 'user' as const, content: text, timestamp: Date.now() }]);
-
-      await agent.send(text);
-  }, [addSystemMessage, exit, refreshMessages, resetForNewChat]);
 
   if (setupMode) {
     return (
@@ -378,12 +425,14 @@ export function App() {
     );
   }
 
-  const displayMsgs = messages.map((m, i) => {
-    if ((m as SystemMessage).role === 'system_output') {
-      return { role: 'assistant' as const, content: (m as SystemMessage).content, timestamp: (m as SystemMessage).timestamp };
-    }
-    return m as Message;
-  });
+  const displayMsgs = useMemo(() => {
+    return messages.map((m, i) => {
+      if ((m as SystemMessage).role === 'system_output') {
+        return { role: 'assistant' as const, content: (m as SystemMessage).content, timestamp: (m as SystemMessage).timestamp };
+      }
+      return m as Message;
+    });
+  }, [messages]);
 
   const { columns, rows } = useTerminalSize();
 
@@ -394,8 +443,8 @@ export function App() {
         messages={displayMsgs}
         theme={theme}
         toolEvents={toolEvents}
-        streamBuffer={streamBuffer}
-        thoughtBuffer={thoughtBuffer}
+        streamBuffer={throttledStreamBuffer}
+        thoughtBuffer={throttledThoughtBuffer}
         isThinking={isThinking}
         isWriting={isWriting}
         showThinking={showThinking}
@@ -443,7 +492,7 @@ export function App() {
              </Box>
              <Box marginTop={1}>
                <Text color={theme.muted} dimColor>
-                 Esc to cancel · Tab to amend · Ctrl+O {toolAskExpanded ? 'Collapse' : 'Expand'}
+                 Esc to cancel · Tab to amend · Ctrl+O {toolAskExpanded ? 'Collapse' : 'Expand'} · <Text color={theme.error} dimColor>↑↓ disabled</Text>
                </Text>
              </Box>
           </Box>
